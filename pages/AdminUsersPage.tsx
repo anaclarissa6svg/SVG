@@ -5,11 +5,15 @@ import { User, UserRole, PermissionLevel, UserPermissions } from '../types';
 interface AdminUsersPageProps {
   users: User[];
   onUpdateUsers: (users: User[]) => void;
+  currentUser: User;
+  onUpdateCurrentUser: (user: User) => void;
 }
 
-const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ users, onUpdateUsers }) => {
+const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ users, onUpdateUsers, currentUser, onUpdateCurrentUser }) => {
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [visiblePasswords, setVisiblePasswords] = useState<{ [key: string]: boolean }>({});
+  
   const [form, setForm] = useState({ 
     name: '', 
     username: '', 
@@ -49,13 +53,42 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ users, onUpdateUsers })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validar que el nombre de usuario no esté tomado por otro usuario
+    const isDuplicate = users.some(u => 
+      u.username.toLowerCase() === form.username.toLowerCase() && 
+      (!editingUser || u.id !== editingUser.id)
+    );
+
+    if (isDuplicate) {
+      alert('Error: Este nombre de usuario ya está en uso por otro colaborador.');
+      return;
+    }
+
     if (editingUser) {
-      onUpdateUsers(users.map(u => u.id === editingUser.id ? { ...u, ...form } : u));
+      const updatedUsers = users.map(u => u.id === editingUser.id ? { ...u, ...form } : u);
+      onUpdateUsers(updatedUsers);
+      
+      // Si el usuario editado es el actual, actualizar la sesión
+      if (editingUser.id === currentUser.id) {
+        onUpdateCurrentUser({ ...currentUser, ...form });
+      }
     } else {
       const newUser: User = { id: `u-${Date.now()}`, ...form };
       onUpdateUsers([...users, newUser]);
     }
     setShowModal(false);
+  };
+
+  const togglePasswordVisibility = (id: string) => {
+    setVisiblePasswords(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const copyToClipboard = (u: string, p: string) => {
+    const text = `Acceso Academia Savage:\nUsuario: ${u}\nContraseña: ${p}`;
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Credenciales copiadas al portapapeles');
+    });
   };
 
   const updatePermission = (module: keyof UserPermissions, level: PermissionLevel) => {
@@ -69,6 +102,10 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ users, onUpdateUsers })
   };
 
   const deleteUser = (id: string) => {
+    if (id === currentUser.id) {
+      alert('No puedes eliminar tu propio usuario de administrador mientras estás en sesión.');
+      return;
+    }
     if (confirm('¿Eliminar acceso de este usuario permanentemente?')) {
       onUpdateUsers(users.filter(u => u.id !== id));
     }
@@ -124,8 +161,9 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ users, onUpdateUsers })
           <table className="w-full text-left">
             <thead className="bg-slate-50 border-b border-slate-100">
               <tr>
-                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nombre / Usuario</th>
-                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Permisos</th>
+                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Colaborador</th>
+                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Credenciales de Acceso</th>
+                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Permisos de Módulo</th>
                 <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Acciones</th>
               </tr>
             </thead>
@@ -139,23 +177,46 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ users, onUpdateUsers })
                       </div>
                       <div>
                         <p className="font-black text-slate-800 uppercase italic text-sm">{u.name}</p>
-                        <p className="text-[10px] font-bold text-slate-400">@{u.username} • {u.role}</p>
+                        <p className="text-[10px] font-bold text-red-600 uppercase tracking-widest">{u.role}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-8 py-6">
-                    <div className="flex justify-center gap-2">
+                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 inline-flex items-center gap-4">
+                      <div className="flex flex-col">
+                        <span className="text-[8px] font-black text-slate-400 uppercase">Usuario:</span>
+                        <span className="text-xs font-bold text-slate-700">@{u.username}</span>
+                      </div>
+                      <div className="w-px h-6 bg-slate-200"></div>
+                      <div className="flex flex-col">
+                        <span className="text-[8px] font-black text-slate-400 uppercase">Contraseña:</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono font-bold text-slate-800">
+                            {visiblePasswords[u.id] ? u.password : '••••••••'}
+                          </span>
+                          <button onClick={() => togglePasswordVisibility(u.id)} className="text-slate-300 hover:text-red-900 transition">
+                            <i className={`fas ${visiblePasswords[u.id] ? 'fa-eye-slash' : 'fa-eye'} text-[10px]`}></i>
+                          </button>
+                        </div>
+                      </div>
+                      <button onClick={() => copyToClipboard(u.username, u.password || '')} className="ml-2 bg-white p-2 rounded-xl text-slate-400 hover:text-emerald-600 shadow-sm border border-slate-100">
+                        <i className="fas fa-copy text-[10px]"></i>
+                      </button>
+                    </div>
+                  </td>
+                  <td className="px-8 py-6">
+                    <div className="flex justify-center flex-wrap gap-1 max-w-[200px] mx-auto">
                        {Object.entries(u.permissions).map(([mod, level]) => (
-                         <div key={mod} className={`px-2 py-1 rounded-lg text-[7px] font-black uppercase tracking-widest border ${level === 'edit' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : level === 'view' ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-slate-50 text-slate-300 border-slate-100'}`}>
-                            {mod}: {level}
+                         <div key={mod} className={`px-2 py-0.5 rounded-lg text-[7px] font-black uppercase tracking-widest border ${level === 'edit' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : level === 'view' ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-slate-50 text-slate-300 border-slate-100'}`}>
+                            {mod}
                          </div>
                        ))}
                     </div>
                   </td>
                   <td className="px-8 py-6 text-right">
                     <div className="flex justify-end space-x-2">
-                      <button onClick={() => handleOpenEdit(u)} className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 hover:bg-red-900 hover:text-white transition flex items-center justify-center"><i className="fas fa-edit"></i></button>
-                      <button disabled={u.username === 'Clari'} onClick={() => deleteUser(u.id)} className="w-10 h-10 rounded-xl bg-slate-100 text-slate-300 hover:text-red-600 hover:bg-red-50 transition flex items-center justify-center disabled:opacity-20"><i className="fas fa-trash"></i></button>
+                      <button onClick={() => handleOpenEdit(u)} className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 hover:bg-red-900 hover:text-white transition flex items-center justify-center shadow-sm"><i className="fas fa-edit"></i></button>
+                      <button disabled={u.username === 'Clari'} onClick={() => deleteUser(u.id)} className="w-10 h-10 rounded-xl bg-slate-100 text-slate-300 hover:text-red-600 hover:bg-red-50 transition flex items-center justify-center disabled:opacity-20 shadow-sm"><i className="fas fa-trash"></i></button>
                     </div>
                   </td>
                 </tr>
@@ -194,7 +255,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ users, onUpdateUsers })
                         </select>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Usuario</label>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Usuario (Login)</label>
                         <input className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-700 outline-none" value={form.username} onChange={e => setForm({...form, username: e.target.value})} required />
                       </div>
                       <div className="space-y-1">
@@ -221,7 +282,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ users, onUpdateUsers })
                     type="submit" 
                     className="w-full bg-red-900 text-white py-6 rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl hover:bg-black transition-all transform active:scale-95 mt-8"
                   >
-                    {editingUser ? 'Aplicar Cambios de Seguridad' : 'Confirmar Nuevo Usuario'}
+                    {editingUser ? 'Aplicar Cambios de Seguridad' : 'Confirmar Nuevo Colaborador'}
                   </button>
                </form>
              </div>

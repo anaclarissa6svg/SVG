@@ -93,8 +93,6 @@ const App: React.FC = () => {
   }, [currentUser]);
 
   const handleUpdateAthlete = (updatedAthlete: Athlete) => {
-    // Nota: El permiso específico por módulo se valida dentro de cada página, 
-    // pero aquí mantenemos un log y una verificación básica.
     setAthletes(prev => prev.map(a => a.id === updatedAthlete.id ? updatedAthlete : a));
     addAuditLog('Actualización Atleta', updatedAthlete.id, 'Atleta');
   };
@@ -178,7 +176,14 @@ const App: React.FC = () => {
       case 'db-athletes':
         return <DatabaseAthletes athletes={athletes} />;
       case 'admin-users':
-        return currentUser.role === UserRole.ADMIN ? <AdminUsersPage users={users} onUpdateUsers={setUsers} /> : null;
+        return currentUser.role === UserRole.ADMIN ? (
+          <AdminUsersPage 
+            users={users} 
+            onUpdateUsers={setUsers} 
+            currentUser={currentUser}
+            onUpdateCurrentUser={setCurrentUser}
+          />
+        ) : null;
       default:
         return null;
     }

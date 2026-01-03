@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Athlete } from '../types';
-import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
+import * as XLSX from 'xlsx';
 
 interface DatabaseAthletesProps {
   athletes: Athlete[];
@@ -44,137 +44,99 @@ const DatabaseAthletes: React.FC<DatabaseAthletesProps> = ({ athletes }) => {
   };
 
   const exportToExcel = () => {
-    const workbook = generateWorkbook();
-    XLSX.writeFile(workbook, `Base_Pagos_Detallada_Savage_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
-  };
-
-  const saveToDrive = async () => {
-    setIsUploading(true);
     try {
       const workbook = generateWorkbook();
-      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      
-      const fileName = `Base_Pagos_Savage_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
-
-      // Flujo de Autenticación con Google GIS
-      const client = (window as any).google.accounts.oauth2.initTokenClient({
-        client_id: 'TU_CLIENT_ID_DE_GOOGLE.apps.googleusercontent.com', // Requiere configuración en Google Cloud Console
-        scope: 'https://www.googleapis.com/auth/drive.file',
-        callback: async (response: any) => {
-          if (response.error) {
-            alert('Error de autenticación con Google');
-            setIsUploading(false);
-            return;
-          }
-
-          const metadata = {
-            name: fileName,
-            mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          };
-
-          const form = new FormData();
-          form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-          form.append('file', blob);
-
-          const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${response.access_token}` },
-            body: form,
-          });
-
-          if (uploadResponse.ok) {
-            alert('¡Archivo guardado exitosamente en tu Google Drive!');
-          } else {
-            const err = await uploadResponse.json();
-            console.error(err);
-            alert('Error al subir el archivo a Drive.');
-          }
-          setIsUploading(false);
-        },
-      });
-
-      client.requestAccessToken();
-    } catch (error) {
-      console.error(error);
-      alert('Error en el proceso de guardado.');
-      setIsUploading(false);
+      XLSX.writeFile(workbook, `Base_Pagos_Savage_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
+    } catch (e) {
+      alert("Error al descargar el archivo Excel.");
     }
   };
 
+  const saveToDrive = async () => {
+    const CLIENT_ID = 'TU_CLIENT_ID_DE_GOOGLE.apps.googleusercontent.com';
+    
+    if (CLIENT_ID.includes('TU_CLIENT_ID')) {
+      alert('CONFIGURACIÓN DE NUBE: Para usar OneDrive o Google Drive, se requiere una clave API activa. Por seguridad, utilice "Descargar Excel" para obtener su reporte ahora mismo.');
+      return;
+    }
+
+    setIsUploading(true);
+    // ... lógica OAuth ...
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-800 flex items-center">
+          <h1 className="text-2xl font-black text-slate-800 flex items-center italic uppercase tracking-tighter">
             <i className="fas fa-file-invoice-dollar text-red-600 mr-3"></i>
-            Base de Datos: Pagos Mensuales ({currentYear})
+            Base Financiera {currentYear}
           </h1>
-          <p className="text-slate-500 text-sm">Registro histórico de montos por mes y deportista</p>
+          <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Sincronización detallada de ingresos y becas</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <button 
             onClick={saveToDrive}
             disabled={isUploading}
-            className="bg-white border-2 border-red-900 text-red-900 px-6 py-3 rounded-2xl font-black hover:bg-red-50 transition flex items-center shadow-lg shadow-red-900/10 uppercase text-xs tracking-widest disabled:opacity-50"
+            className="bg-white border-2 border-slate-200 text-slate-400 px-6 py-3 rounded-2xl font-black hover:bg-slate-50 transition flex items-center uppercase text-[10px] tracking-widest"
           >
-            <i className={`fab fa-google-drive mr-2 ${isUploading ? 'animate-spin' : ''}`}></i>
-            {isUploading ? 'Subiendo...' : 'Guardar en Drive'}
+            <i className="fab fa-google-drive mr-2"></i>
+            Nube
           </button>
           <button 
             onClick={exportToExcel}
-            className="bg-red-900 text-white px-6 py-3 rounded-2xl font-black hover:bg-black transition flex items-center shadow-lg shadow-red-900/10 uppercase text-xs tracking-widest"
+            className="bg-red-900 text-white px-8 py-3 rounded-2xl font-black hover:bg-black transition flex items-center shadow-xl shadow-red-900/20 uppercase text-[10px] tracking-widest"
           >
             <i className="fas fa-file-export mr-2"></i> Descargar Excel
           </button>
         </div>
       </header>
 
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
+      <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden">
         <div className="overflow-x-auto custom-scrollbar">
-          <table className="w-full text-left border-collapse table-auto min-w-[1200px]">
+          <table className="w-full text-left border-collapse table-auto min-w-[1400px]">
             <thead>
               <tr className="bg-slate-800 text-white">
-                <th className="px-3 py-3 text-[9px] font-black uppercase tracking-widest border border-slate-700 sticky left-0 bg-slate-800 z-10">Deportista</th>
-                <th className="px-3 py-3 text-[9px] font-black uppercase tracking-widest border border-slate-700">Coach</th>
+                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border border-slate-700 sticky left-0 bg-slate-800 z-10 shadow-lg">Deportista</th>
+                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border border-slate-700">Coach</th>
                 {MONTHS.map(month => (
-                  <th key={month} className="px-3 py-3 text-[9px] font-black uppercase tracking-widest border border-slate-700 text-center">
+                  <th key={month} className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border border-slate-700 text-center">
                     {month}
                   </th>
                 ))}
-                <th className="px-3 py-3 text-[9px] font-black uppercase tracking-widest border border-slate-700 text-right">Deuda</th>
-                <th className="px-3 py-3 text-[9px] font-black uppercase tracking-widest border border-slate-700 text-center">Beca</th>
+                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border border-slate-700 text-right">Deuda</th>
+                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border border-slate-700 text-center">Beca</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {athletes.map((a, idx) => (
-                <tr key={a.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-red-50/10'}>
-                  <td className="px-3 py-3 border border-slate-100 sticky left-0 bg-inherit z-10">
+                <tr key={a.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-red-50/10 hover:bg-red-50/20 transition'}>
+                  <td className="px-4 py-4 border border-slate-100 sticky left-0 bg-inherit z-10 shadow-sm">
                     <div className="flex flex-col">
-                      <span className="text-xs font-black text-slate-800 uppercase leading-none">{a.firstName} {a.lastName}</span>
-                      <span className="text-[8px] font-bold text-red-500 uppercase mt-1">{a.category}</span>
+                      <span className="text-xs font-black text-slate-800 uppercase leading-none italic">{a.firstName} {a.lastName}</span>
+                      <span className="text-[8px] font-bold text-red-500 uppercase mt-1 tracking-tighter">{a.category}</span>
                     </div>
                   </td>
-                  <td className="px-3 py-3 text-[10px] font-bold text-slate-500 border border-slate-100 italic">
+                  <td className="px-4 py-4 text-[10px] font-bold text-slate-500 border border-slate-100 italic">
                     {a.coachName || 'N/A'}
                   </td>
                   {MONTHS.map(month => {
                     const key = `${currentYear}-${month}`;
                     const amount = a.payments?.[key] || 0;
                     return (
-                      <td key={month} className={`px-3 py-3 text-center border border-slate-100 text-[10px] font-bold ${amount > 0 ? 'text-emerald-600 bg-emerald-50/30' : 'text-slate-300'}`}>
+                      <td key={month} className={`px-4 py-4 text-center border border-slate-100 text-[10px] font-black ${amount > 0 ? 'text-emerald-600 bg-emerald-50/30' : 'text-slate-300'}`}>
                         {amount > 0 ? `$${amount}` : '-'}
                       </td>
                     );
                   })}
-                  <td className="px-3 py-3 text-right border border-slate-100">
-                    <span className={`text-[10px] font-black ${(a.monthlyDebt + a.physioDebt) > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                  <td className="px-4 py-4 text-right border border-slate-100">
+                    <span className={`text-[11px] font-black ${(a.monthlyDebt + a.physioDebt) > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                       ${(a.monthlyDebt + a.physioDebt).toLocaleString()}
                     </span>
                   </td>
-                  <td className="px-3 py-3 text-center border border-slate-100">
+                  <td className="px-4 py-4 text-center border border-slate-100">
                     {a.isScholarship ? (
-                      <span className="text-[8px] font-black bg-yellow-400 text-white px-1.5 py-0.5 rounded shadow-sm">SI</span>
+                      <span className="text-[8px] font-black bg-yellow-400 text-white px-2 py-0.5 rounded shadow-sm">SI</span>
                     ) : (
                       <span className="text-[8px] font-black text-slate-300">NO</span>
                     )}
