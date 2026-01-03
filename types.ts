@@ -1,3 +1,4 @@
+
 export enum UserRole {
   ADMIN = 'ADMIN',
   FISIO = 'FISIO',
@@ -10,6 +11,8 @@ export interface User {
   username: string;
   name: string;
   role: UserRole;
+  password?: string;
+  canEdit: boolean; // Permiso dinámico para activar/desactivar edición
 }
 
 export interface Athlete {
@@ -42,7 +45,7 @@ export interface Athlete {
   familyHistory?: string;
   clinicalNotes?: string;
 
-  // Historia Social Permanente (Nuevos campos en blanco)
+  // Historia Social Permanente
   familyComposition?: string;
   housingStatus?: string;
   economicStatus?: string;
