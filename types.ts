@@ -36,7 +36,7 @@ export interface Athlete {
   monthlyDebt: number;
   physioDebt: number;
   monthlyTherapyDebt: number;
-  previousYearDebt: number; // Nuevo campo para adeudos históricos
+  previousYearDebt: number;
   files: AthleteFile[];
   socialReports: SocialReport[];
   physioConsultations: PhysioConsultation[];
@@ -44,10 +44,11 @@ export interface Athlete {
   physicalTests: PhysicalTest[];
   coachName?: string;
   payments?: { [month: string]: number };
+  therapyPayments?: { [month: string]: number };
+  inscriptionPaid?: { [year: string]: boolean }; // Nuevo campo para inscripciones
   tutorName?: string;
   tutorPhone?: string;
   
-  // Historia Clínica
   bloodType?: string;
   allergies?: string;
   chronicDiseases?: string;
@@ -56,7 +57,6 @@ export interface Athlete {
   familyHistory?: string;
   clinicalNotes?: string;
 
-  // Historia Social Permanente
   familyComposition?: string;
   housingStatus?: string;
   economicStatus?: string;
