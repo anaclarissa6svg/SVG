@@ -1,16 +1,17 @@
 
 import React, { useState, useMemo } from 'react';
-import { Athlete, PhysioConsultation, UserRole } from '../types';
+import { Athlete, PhysioConsultation, User, UserRole } from '../types';
 
 interface PhysioPageProps {
   athletes: Athlete[];
   selectedAthleteId: string | null;
   onUpdateAthlete: (athlete: Athlete) => void;
+  user: User;
 }
 
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-const PhysioPage: React.FC<PhysioPageProps> = ({ athletes, selectedAthleteId, onUpdateAthlete }) => {
+const PhysioPage: React.FC<PhysioPageProps> = ({ athletes, selectedAthleteId, onUpdateAthlete, user }) => {
   const [activeTab, setActiveTab] = useState<'sessions' | 'records'>('sessions');
   const [showForm, setShowForm] = useState(false);
   const [showClinicalEdit, setShowClinicalEdit] = useState(false);
@@ -18,6 +19,8 @@ const PhysioPage: React.FC<PhysioPageProps> = ({ athletes, selectedAthleteId, on
   const [searchTerm, setSearchTerm] = useState('');
   const [viewingAthleteId, setViewingAthleteId] = useState<string | null>(selectedAthleteId);
   
+  const canEdit = user.permissions.physio === 'edit';
+
   // Form State for new session
   const [formData, setFormData] = useState({
     athleteId: '',
@@ -97,6 +100,7 @@ const PhysioPage: React.FC<PhysioPageProps> = ({ athletes, selectedAthleteId, on
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canEdit) return;
     const athlete = athletes.find(a => a.id === formData.athleteId);
     if (!athlete) {
       alert('Por favor seleccione un deportista válido de la lista.');
@@ -134,7 +138,7 @@ const PhysioPage: React.FC<PhysioPageProps> = ({ athletes, selectedAthleteId, on
       diagnosis: formData.diagnosis,
       observations: formData.observations,
       treatment: formData.treatment,
-      createdBy: 'Especialista Fisioterapia'
+      createdBy: user.name
     };
 
     const updatedAthlete = {
@@ -156,6 +160,7 @@ const PhysioPage: React.FC<PhysioPageProps> = ({ athletes, selectedAthleteId, on
   };
 
   const handleOpenClinicalEdit = (athlete: Athlete) => {
+    if (!canEdit) return;
     setClinicalForm({
       bloodType: athlete.bloodType || '',
       allergies: athlete.allergies || '',
@@ -169,6 +174,7 @@ const PhysioPage: React.FC<PhysioPageProps> = ({ athletes, selectedAthleteId, on
   };
 
   const handleSaveClinicalHistory = () => {
+    if (!canEdit) return;
     const athlete = athletes.find(a => a.id === viewingAthleteId);
     if (!athlete) return;
 
@@ -203,12 +209,14 @@ const PhysioPage: React.FC<PhysioPageProps> = ({ athletes, selectedAthleteId, on
           >
             <i className="fas fa-folder-open mr-2"></i> Expedientes
           </button>
-          <button 
-            onClick={() => setShowForm(true)}
-            className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black hover:bg-emerald-700 transition flex items-center justify-center shadow-xl shadow-emerald-900/20 uppercase text-xs tracking-widest"
-          >
-            <i className="fas fa-plus mr-2"></i> Nueva Sesión
-          </button>
+          {canEdit && (
+            <button 
+              onClick={() => setShowForm(true)}
+              className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black hover:bg-emerald-700 transition flex items-center justify-center shadow-xl shadow-emerald-900/20 uppercase text-xs tracking-widest"
+            >
+              <i className="fas fa-plus mr-2"></i> Nueva Sesión
+            </button>
+          )}
         </div>
       </header>
 
@@ -344,12 +352,14 @@ const PhysioPage: React.FC<PhysioPageProps> = ({ athletes, selectedAthleteId, on
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                   <button 
-                    onClick={() => handleOpenClinicalEdit(selectedAthleteForHistory)}
-                    className="bg-red-600 hover:bg-red-700 text-white px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition shadow-xl"
-                   >
-                     <i className="fas fa-edit mr-2"></i> Editar Historia Base
-                   </button>
+                   {canEdit && (
+                     <button 
+                      onClick={() => handleOpenClinicalEdit(selectedAthleteForHistory)}
+                      className="bg-red-600 hover:bg-red-700 text-white px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition shadow-xl"
+                     >
+                       <i className="fas fa-edit mr-2"></i> Editar Historia Base
+                     </button>
+                   )}
                   <div className="bg-white/5 p-5 rounded-3xl border border-white/10 text-center min-w-[120px]">
                     <p className="text-[8px] font-black text-red-400 uppercase tracking-widest mb-1">Total Sesiones</p>
                     <p className="text-2xl font-black">{selectedAthleteForHistory.physioConsultations.length}</p>

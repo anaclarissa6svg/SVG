@@ -6,13 +6,22 @@ export enum UserRole {
   COACH = 'COACH'
 }
 
+export type PermissionLevel = 'none' | 'view' | 'edit';
+
+export interface UserPermissions {
+  payments: PermissionLevel;
+  physio: PermissionLevel;
+  social: PermissionLevel;
+  teams: PermissionLevel;
+}
+
 export interface User {
   id: string;
   username: string;
   name: string;
   role: UserRole;
   password?: string;
-  canEdit: boolean; // Permiso dinámico para activar/desactivar edición
+  permissions: UserPermissions;
 }
 
 export interface Athlete {
@@ -108,6 +117,7 @@ export interface Match {
   date: string;
   time: string;
   location: string;
+  locationUri?: string;
   observations: string;
   selectedAthleteIds: string[];
 }

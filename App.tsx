@@ -63,8 +63,6 @@ const App: React.FC = () => {
 
   const [currentPage, setCurrentPage] = useState<string>('dashboard');
   const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(null);
-  
-  // Estado para el modal de seguridad administrativa
   const [showAdminPassModal, setShowAdminPassModal] = useState(false);
   const [adminPassInput, setAdminPassInput] = useState('');
   const [adminPassError, setAdminPassError] = useState(false);
@@ -95,13 +93,14 @@ const App: React.FC = () => {
   }, [currentUser]);
 
   const handleUpdateAthlete = (updatedAthlete: Athlete) => {
-    if (!currentUser?.canEdit) { alert('No tienes permiso para modificar datos.'); return; }
+    // Nota: El permiso específico por módulo se valida dentro de cada página, 
+    // pero aquí mantenemos un log y una verificación básica.
     setAthletes(prev => prev.map(a => a.id === updatedAthlete.id ? updatedAthlete : a));
     addAuditLog('Actualización Atleta', updatedAthlete.id, 'Atleta');
   };
 
   const handleAddAthlete = (newAthlete: Athlete) => {
-    if (!currentUser?.canEdit) { alert('No tienes permiso para registrar atletas.'); return; }
+    if (currentUser?.permissions.teams !== 'edit') { alert('No tienes permiso para registrar atletas.'); return; }
     setAthletes(prev => [...prev, newAthlete]);
     addAuditLog('Registro Atleta', newAthlete.id, 'Atleta');
   };
@@ -146,7 +145,7 @@ const App: React.FC = () => {
             onAddAthlete={handleAddAthlete}
             onSendToPhysio={(id) => { setSelectedAthleteId(id); setCurrentPage('physio'); }}
             matches={matches} teams={teams} events={events}
-            onAddEvent={(ev) => { if(currentUser.canEdit) setEvents(prev => [ev, ...prev]); }}
+            onAddEvent={(ev) => { if(currentUser.permissions.teams === 'edit') setEvents(prev => [ev, ...prev]); }}
           />
         );
       case 'athlete-detail':
@@ -159,17 +158,17 @@ const App: React.FC = () => {
           />
         ) : null;
       case 'payments':
-        return currentUser.role === UserRole.ADMIN ? <PaymentsPage athletes={athletes} onUpdateAthlete={handleUpdateAthlete} /> : null;
+        return currentUser.permissions.payments !== 'none' ? <PaymentsPage athletes={athletes} onUpdateAthlete={handleUpdateAthlete} user={currentUser} /> : null;
       case 'physio':
-        return (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.FISIO) ? (
-          <PhysioPage athletes={athletes} selectedAthleteId={selectedAthleteId} onUpdateAthlete={handleUpdateAthlete} />
+        return currentUser.permissions.physio !== 'none' ? (
+          <PhysioPage athletes={athletes} selectedAthleteId={selectedAthleteId} onUpdateAthlete={handleUpdateAthlete} user={currentUser} />
         ) : null;
       case 'social':
-        return (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.SOCIAL) ? (
-          <SocialPage athletes={athletes} onUpdateAthlete={handleUpdateAthlete} />
+        return currentUser.permissions.social !== 'none' ? (
+          <SocialPage athletes={athletes} onUpdateAthlete={handleUpdateAthlete} user={currentUser} />
         ) : null;
       case 'teams':
-        return (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.COACH) ? (
+        return currentUser.permissions.teams !== 'none' ? (
           <TeamsPage athletes={athletes} teams={teams} setTeams={setTeams} matches={matches} setMatches={setMatches} user={currentUser} onUpdateAthlete={handleUpdateAthlete} />
         ) : null;
       case 'audit':
@@ -192,16 +191,15 @@ const App: React.FC = () => {
         {renderContent()}
       </main>
 
-      {/* Dock Inferior de Gestión Avanzada */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-slate-200 z-40 py-4 shadow-2xl">
         <div className="container mx-auto px-4 flex justify-between items-center">
           <div className="flex gap-4">
-             {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.FISIO) && (
+             {currentUser.permissions.physio !== 'none' && (
                <button onClick={() => setCurrentPage('db-physio')} className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition ${currentPage === 'db-physio' ? 'bg-emerald-600 text-white' : 'text-emerald-700 hover:bg-emerald-50'}`}>
                  <i className="fas fa-file-medical"></i> <span>Reporte Fisio</span>
                </button>
              )}
-             {currentUser.role === UserRole.ADMIN && (
+             {currentUser.permissions.payments !== 'none' && (
                <button onClick={() => setCurrentPage('db-athletes')} className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition ${currentPage === 'db-athletes' ? 'bg-red-900 text-white' : 'text-red-900 hover:bg-red-50'}`}>
                  <i className="fas fa-file-invoice-dollar"></i> <span>Base Pagos</span>
                </button>
@@ -221,7 +219,6 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal de Contraseña de Seguridad (0102) */}
       {showAdminPassModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-[250] p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in duration-300">

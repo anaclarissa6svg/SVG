@@ -10,13 +10,14 @@ interface NavbarProps {
 }
 
 const Navbar: React.FC<NavbarProps> = ({ user, onLogout, currentPage, setCurrentPage }) => {
+  // Ahora los items se muestran si el permiso es distinto de 'none'
   const navItems = [
-    { id: 'dashboard', label: 'Inicio', icon: 'fa-home', roles: [UserRole.ADMIN, UserRole.FISIO, UserRole.SOCIAL, UserRole.COACH] },
-    { id: 'payments', label: 'Pagos', icon: 'fa-credit-card', roles: [UserRole.ADMIN] },
-    { id: 'physio', label: 'Fisioterapia', icon: 'fa-hand-holding-medical', roles: [UserRole.ADMIN, UserRole.FISIO] },
-    { id: 'social', label: 'Área Social', icon: 'fa-users', roles: [UserRole.ADMIN, UserRole.SOCIAL] },
-    { id: 'teams', label: 'Equipos/Partidos', icon: 'fa-calendar-alt', roles: [UserRole.ADMIN, UserRole.COACH] },
-    { id: 'audit', label: 'Auditoría', icon: 'fa-shield-alt', roles: [UserRole.ADMIN] },
+    { id: 'dashboard', label: 'Inicio', icon: 'fa-home', isVisible: true },
+    { id: 'payments', label: 'Pagos', icon: 'fa-credit-card', isVisible: user.permissions.payments !== 'none' },
+    { id: 'physio', label: 'Fisioterapia', icon: 'fa-hand-holding-medical', isVisible: user.permissions.physio !== 'none' },
+    { id: 'social', label: 'Área Social', icon: 'fa-users', isVisible: user.permissions.social !== 'none' },
+    { id: 'teams', label: 'Equipos/Partidos', icon: 'fa-calendar-alt', isVisible: user.permissions.teams !== 'none' },
+    { id: 'audit', label: 'Auditoría', icon: 'fa-shield-alt', isVisible: user.role === UserRole.ADMIN },
   ];
 
   return (
@@ -30,7 +31,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout, currentPage, setCurrent
             </div>
 
             <div className="hidden lg:flex space-x-1">
-              {navItems.filter(item => item.roles.includes(user.role)).map(item => (
+              {navItems.filter(item => item.isVisible).map(item => (
                 <button
                   key={item.id}
                   onClick={() => setCurrentPage(item.id)}
@@ -50,7 +51,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout, currentPage, setCurrent
           <div className="flex items-center space-x-6">
             <div className="hidden sm:block text-right pr-6 border-r border-red-900/50">
               <p className="text-[9px] font-black text-red-500 uppercase tracking-widest leading-none mb-1">
-                {user.role} {user.canEdit ? '• Editor' : '• Lector'}
+                Savage {user.role}
               </p>
               <p className="text-sm font-black italic">{user.name}</p>
             </div>

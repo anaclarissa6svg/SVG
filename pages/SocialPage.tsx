@@ -1,20 +1,22 @@
 
 import React, { useState, useMemo } from 'react';
-import { Athlete, SocialReport, UserRole } from '../types';
+import { Athlete, SocialReport, User, UserRole } from '../types';
 
 interface SocialPageProps {
   athletes: Athlete[];
   onUpdateAthlete: (athlete: Athlete) => void;
+  user: User;
 }
 
-const SocialPage: React.FC<SocialPageProps> = ({ athletes, onUpdateAthlete }) => {
+const SocialPage: React.FC<SocialPageProps> = ({ athletes, onUpdateAthlete, user }) => {
   const [activeTab, setActiveTab] = useState<'reports' | 'dossiers'>('reports');
   const [searchTerm, setSearchTerm] = useState('');
   const [showReportForm, setShowReportForm] = useState(false);
   const [showSocialEdit, setShowSocialEdit] = useState(false);
   const [viewingAthleteId, setViewingAthleteId] = useState<string | null>(null);
 
-  // Form states
+  const canEdit = user.permissions.social === 'edit';
+
   const [reportForm, setReportForm] = useState({
     athleteId: '',
     athleteSearch: '',
@@ -24,7 +26,6 @@ const SocialPage: React.FC<SocialPageProps> = ({ athletes, onUpdateAthlete }) =>
 
   const [socialHistoryForm, setSocialHistoryForm] = useState<Partial<Athlete>>({});
 
-  // Filtered lists
   const filteredAthletes = useMemo(() => {
     return athletes.filter(a => 
       `${a.firstName} ${a.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -55,59 +56,36 @@ const SocialPage: React.FC<SocialPageProps> = ({ athletes, onUpdateAthlete }) =>
   }, [athletes, reportForm.athleteSearch]);
 
   const handleSelectAthlete = (athlete: Athlete) => {
-    setReportForm({ 
-      ...reportForm, 
-      athleteId: athlete.id, 
-      athleteSearch: `${athlete.firstName} ${athlete.lastName}` 
-    });
+    setReportForm({ ...reportForm, athleteId: athlete.id, athleteSearch: `${athlete.firstName} ${athlete.lastName}` });
   };
 
   const handleReportSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canEdit) return;
     const athlete = athletes.find(a => a.id === reportForm.athleteId);
     if (!athlete) return;
-
-    const newReport: SocialReport = {
-      id: Math.random().toString(36).substr(2, 9),
-      date: new Date().toLocaleDateString(),
-      title: reportForm.title,
-      content: reportForm.content,
-      createdBy: 'Área Social'
-    };
-
-    onUpdateAthlete({
-      ...athlete,
-      socialReports: [newReport, ...athlete.socialReports]
-    });
-
+    const newReport: SocialReport = { id: Math.random().toString(36).substr(2, 9), date: new Date().toLocaleDateString(), title: reportForm.title, content: reportForm.content, createdBy: user.name };
+    onUpdateAthlete({ ...athlete, socialReports: [newReport, ...athlete.socialReports] });
     setShowReportForm(false);
     setReportForm({ athleteId: '', athleteSearch: '', title: '', content: '' });
-    alert('Intervención social registrada correctamente.');
   };
 
   const handleOpenSocialEdit = (athlete: Athlete) => {
+    if (!canEdit) return;
     setSocialHistoryForm({
       familyComposition: athlete.familyComposition || '',
-      housingStatus: athlete.housingStatus || '',
-      economicStatus: athlete.economicStatus || '',
       schoolName: athlete.schoolName || '',
-      schoolGrade: athlete.schoolGrade || '',
-      academicAverage: athlete.academicAverage || '',
       socialBehavioralNotes: athlete.socialBehavioralNotes || ''
     });
     setShowSocialEdit(true);
   };
 
   const handleSaveSocialHistory = () => {
+    if (!canEdit) return;
     const athlete = athletes.find(a => a.id === viewingAthleteId);
     if (!athlete) return;
-
-    onUpdateAthlete({
-      ...athlete,
-      ...socialHistoryForm
-    });
+    onUpdateAthlete({ ...athlete, ...socialHistoryForm });
     setShowSocialEdit(false);
-    alert('Ficha social actualizada.');
   };
 
   const selectedAthlete = athletes.find(a => a.id === viewingAthleteId);
@@ -116,40 +94,22 @@ const SocialPage: React.FC<SocialPageProps> = ({ athletes, onUpdateAthlete }) =>
     <div className="space-y-6 animate-in fade-in duration-500">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight italic uppercase">
-            Área Social
-          </h1>
+          <h1 className="text-3xl font-black text-slate-800 tracking-tight italic uppercase">Área Social</h1>
           <p className="text-slate-500 font-medium">Seguimiento socioeconómico y familiar</p>
         </div>
         <div className="flex gap-3">
-          <button 
-            onClick={() => setActiveTab('dossiers')}
-            className={`px-6 py-3 rounded-2xl font-black transition text-xs tracking-widest uppercase flex items-center shadow-lg ${activeTab === 'dossiers' ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}
-          >
-            <i className="fas fa-id-card-clip mr-2"></i> Expedientes Sociales
-          </button>
-          <button 
-            onClick={() => setShowReportForm(true)}
-            className="bg-purple-600 text-white px-8 py-3 rounded-2xl font-black hover:bg-purple-700 transition flex items-center justify-center shadow-xl shadow-purple-900/20 uppercase text-xs tracking-widest"
-          >
-            <i className="fas fa-plus mr-2"></i> Nueva Intervención
-          </button>
+          <button onClick={() => setActiveTab('dossiers')} className={`px-6 py-3 rounded-2xl font-black transition text-xs tracking-widest uppercase flex items-center shadow-lg ${activeTab === 'dossiers' ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}><i className="fas fa-id-card-clip mr-2"></i> Expedientes Sociales</button>
+          {canEdit ? (
+            <button onClick={() => setShowReportForm(true)} className="bg-purple-600 text-white px-8 py-3 rounded-2xl font-black hover:bg-purple-700 transition flex items-center justify-center shadow-xl shadow-purple-900/20 uppercase text-xs tracking-widest"><i className="fas fa-plus mr-2"></i> Nueva Intervención</button>
+          ) : (
+             <span className="text-[10px] font-black text-slate-400 uppercase italic self-center">Vista de Lectura Habilitada</span>
+          )}
         </div>
       </header>
 
       <div className="flex bg-slate-100 p-1 rounded-2xl w-fit">
-        <button 
-          onClick={() => setActiveTab('reports')}
-          className={`px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all ${activeTab === 'reports' ? 'bg-white text-purple-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-        >
-          Bitácora de Reportes
-        </button>
-        <button 
-          onClick={() => setActiveTab('dossiers')}
-          className={`px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all ${activeTab === 'dossiers' ? 'bg-white text-purple-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-        >
-          Fichas de Seguimiento
-        </button>
+        <button onClick={() => setActiveTab('reports')} className={`px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all ${activeTab === 'reports' ? 'bg-white text-purple-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>Bitácora</button>
+        <button onClick={() => setActiveTab('dossiers')} className={`px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all ${activeTab === 'dossiers' ? 'bg-white text-purple-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>Fichas</button>
       </div>
 
       {activeTab === 'reports' && (
@@ -180,7 +140,7 @@ const SocialPage: React.FC<SocialPageProps> = ({ athletes, onUpdateAthlete }) =>
             <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Localizar Expediente</h3>
             <div className="relative w-full md:w-96">
               <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-              <input type="text" placeholder="Nombre del atleta..." className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-purple-500 font-bold text-sm text-black" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              <input type="text" placeholder="Nombre..." className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-purple-500 font-bold text-sm text-black" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
           </div>
 
@@ -190,7 +150,6 @@ const SocialPage: React.FC<SocialPageProps> = ({ athletes, onUpdateAthlete }) =>
                 <div className="flex flex-col items-center text-center">
                   <img src={a.photo} className="w-16 h-16 rounded-2xl object-cover mb-3 shadow-md group-hover:scale-105 transition" alt="" />
                   <p className="font-black text-[10px] uppercase italic text-slate-800 truncate w-full">{a.firstName} {a.lastName}</p>
-                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{a.category}</p>
                 </div>
               </button>
             ))}
@@ -201,107 +160,67 @@ const SocialPage: React.FC<SocialPageProps> = ({ athletes, onUpdateAthlete }) =>
               <div className="bg-slate-800 p-8 text-white flex flex-col md:flex-row justify-between items-center gap-6">
                 <div className="flex items-center space-x-6">
                   <img src={selectedAthlete.photo} className="w-20 h-20 rounded-3xl border-2 border-white/10 object-cover shadow-2xl" alt="" />
-                  <div>
-                    <h2 className="text-2xl font-black uppercase italic tracking-tighter">{selectedAthlete.firstName} {selectedAthlete.lastName}</h2>
-                  </div>
+                  <h2 className="text-2xl font-black uppercase italic tracking-tighter">{selectedAthlete.firstName} {selectedAthlete.lastName}</h2>
                 </div>
-                <button onClick={() => handleOpenSocialEdit(selectedAthlete)} className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition border border-white/20">
-                  <i className="fas fa-edit mr-2"></i> Editar Ficha Social
-                </button>
+                {canEdit ? (
+                  <button onClick={() => handleOpenSocialEdit(selectedAthlete)} className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition border border-white/20"><i className="fas fa-edit mr-2"></i> Editar Ficha Social</button>
+                ) : (
+                  <span className="text-xs font-black text-slate-400 uppercase italic">Expediente Protegido (Solo Lectura)</span>
+                )}
               </div>
-
-              <div className="p-10 grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-200 pb-2">Datos Académicos</h4>
-                   <div className="space-y-4">
-                      <div><label className="text-[9px] font-black text-purple-600 uppercase block mb-0.5">Institución</label><p className="font-bold text-slate-800 text-sm">{selectedAthlete.schoolName || 'En blanco'}</p></div>
-                   </div>
-                </div>
-                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-200 pb-2">Entorno Familiar</h4>
-                   <div className="space-y-4">
-                      <div><label className="text-[9px] font-black text-purple-600 uppercase block mb-0.5">Composición Familiar</label><p className="font-bold text-slate-800 text-sm leading-relaxed">{selectedAthlete.familyComposition || 'En blanco'}</p></div>
-                   </div>
-                </div>
-                <div className="md:col-span-2 lg:col-span-3 mt-4">
-                   <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight italic mb-6 flex items-center"><i className="fas fa-stream mr-3 text-purple-600"></i> Historial</h4>
-                   <div className="space-y-4">
-                      {selectedAthlete.socialReports.map(report => (
-                        <div key={report.id} className="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm">
-                           <div className="flex justify-between items-start mb-2"><h5 className="font-black text-slate-800 uppercase italic text-sm">{report.title}</h5><span className="text-[9px] font-black text-slate-400 uppercase">{report.date}</span></div>
-                           <p className="text-sm text-slate-600">{report.content}</p>
-                        </div>
-                      ))}
-                   </div>
-                </div>
+              <div className="p-10 grid md:grid-cols-2 gap-8">
+                 <div className="bg-slate-50 p-6 rounded-3xl">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase mb-4">Información Base</h4>
+                    <p className="text-sm font-bold text-slate-700 leading-relaxed">{selectedAthlete.familyComposition || 'Sin composición familiar registrada.'}</p>
+                 </div>
+                 <div className="bg-slate-50 p-6 rounded-3xl">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase mb-4">Estudios</h4>
+                    <p className="text-sm font-bold text-slate-700">{selectedAthlete.schoolName || 'Sin institución registrada.'}</p>
+                 </div>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {showReportForm && (
+      {showReportForm && canEdit && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-[3rem] w-full max-w-xl shadow-2xl overflow-hidden animate-in zoom-in duration-300 max-h-[95vh] flex flex-col">
+          <div className="bg-white rounded-[3rem] w-full max-w-xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
             <div className="bg-purple-600 p-8 text-white flex justify-between items-center flex-shrink-0">
-               <h3 className="text-xl font-black uppercase tracking-tighter italic">Registrar Intervención</h3>
+               <h3 className="text-xl font-black uppercase tracking-tighter italic">Nueva Intervención</h3>
                <button onClick={() => setShowReportForm(false)} className="text-white/40 hover:text-white transition text-2xl"><i className="fas fa-times"></i></button>
             </div>
-            <div className="overflow-y-auto custom-scrollbar flex-grow">
-              <form onSubmit={handleReportSubmit} className="p-8 space-y-6">
-                 <div className="relative">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Deportista*</label>
-                    <input className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-purple-500 font-bold text-black" placeholder="Buscar atleta..." value={reportForm.athleteSearch} onChange={(e) => setReportForm({...reportForm, athleteSearch: e.target.value, athleteId: ''})} required />
-                    {suggestedAthletes.length > 0 && !reportForm.athleteId && (
-                      <div className="absolute z-50 w-full mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
-                         {suggestedAthletes.map(a => (
-                           <button key={a.id} type="button" onClick={() => handleSelectAthlete(a)} className="w-full p-4 flex items-center space-x-3 hover:bg-purple-50 text-left transition">
-                             <img src={a.photo} className="w-8 h-8 rounded-lg object-cover" alt="" />
-                             <span className="text-xs font-black uppercase italic text-black">{a.firstName} {a.lastName}</span>
-                           </button>
-                         ))}
-                      </div>
-                    )}
-                 </div>
-                 <div className="space-y-2">
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Título / Motivo*</label>
-                   <input className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-purple-500 font-bold text-black" value={reportForm.title} onChange={(e) => setReportForm({...reportForm, title: e.target.value})} required />
-                 </div>
-                 <div className="space-y-2">
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descripción*</label>
-                   <textarea className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-purple-500 font-medium h-32 resize-none text-black" value={reportForm.content} onChange={(e) => setReportForm({...reportForm, content: e.target.value})} required />
-                 </div>
-                 <button type="submit" className="w-full bg-purple-600 text-white font-black py-4 rounded-3xl hover:bg-black transition uppercase text-xs tracking-widest">Guardar</button>
-              </form>
-            </div>
+            <form onSubmit={handleReportSubmit} className="p-8 space-y-6">
+               <div className="relative">
+                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1 mb-1 block">Deportista*</label>
+                  <input className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-black" placeholder="Buscar..." value={reportForm.athleteSearch} onChange={(e) => setReportForm({...reportForm, athleteSearch: e.target.value, athleteId: ''})} required />
+                  {suggestedAthletes.length > 0 && !reportForm.athleteId && (
+                    <div className="absolute z-50 w-full mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+                       {suggestedAthletes.map(a => (
+                         <button key={a.id} type="button" onClick={() => handleSelectAthlete(a)} className="w-full p-4 flex items-center space-x-3 hover:bg-purple-50 transition text-left text-xs font-black uppercase italic">{a.firstName} {a.lastName}</button>
+                       ))}
+                    </div>
+                  )}
+               </div>
+               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Motivo*</label><input className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-black" value={reportForm.title} onChange={(e) => setReportForm({...reportForm, title: e.target.value})} required /></div>
+               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Detalles*</label><textarea className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-medium h-32 resize-none text-black" value={reportForm.content} onChange={(e) => setReportForm({...reportForm, content: e.target.value})} required /></div>
+               <button type="submit" className="w-full bg-purple-600 text-white font-black py-4 rounded-3xl hover:bg-black transition uppercase text-xs tracking-widest">Registrar</button>
+            </form>
           </div>
         </div>
       )}
 
-      {showSocialEdit && selectedAthlete && (
+      {showSocialEdit && canEdit && selectedAthlete && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
-          <div className="bg-white rounded-[3rem] w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in duration-300 max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-[3rem] w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
             <div className="bg-slate-800 p-8 text-white flex justify-between items-center flex-shrink-0">
-               <h3 className="text-xl font-black uppercase tracking-tighter italic">Editar Ficha Social</h3>
+               <h3 className="text-xl font-black uppercase italic">Actualizar Ficha Social</h3>
                <button onClick={() => setShowSocialEdit(false)} className="text-white/40 hover:text-white transition text-2xl"><i className="fas fa-times"></i></button>
             </div>
-            <div className="p-8 space-y-8 overflow-y-auto custom-scrollbar flex-grow bg-white">
-               <div className="space-y-2">
-                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Institución Educativa</label>
-                 <input className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-purple-500 font-bold text-black" value={socialHistoryForm.schoolName} onChange={e => setSocialHistoryForm({...socialHistoryForm, schoolName: e.target.value})} />
-               </div>
-               <div className="space-y-2">
-                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Composición Familiar</label>
-                 <textarea className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold h-24 resize-none text-black" value={socialHistoryForm.familyComposition} onChange={e => setSocialHistoryForm({...socialHistoryForm, familyComposition: e.target.value})} />
-               </div>
-               <div className="space-y-2">
-                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Notas de Comportamiento</label>
-                 <textarea className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-medium h-24 resize-none italic text-black" value={socialHistoryForm.socialBehavioralNotes} onChange={e => setSocialHistoryForm({...socialHistoryForm, socialBehavioralNotes: e.target.value})} />
-               </div>
-            </div>
-            <div className="p-8 bg-slate-50 border-t border-slate-100 flex gap-4 flex-shrink-0">
-               <button onClick={handleSaveSocialHistory} className="flex-1 bg-purple-600 text-white font-black py-4 rounded-2xl hover:bg-black transition uppercase text-xs tracking-widest">Actualizar</button>
-               <button onClick={() => setShowSocialEdit(false)} className="px-8 bg-white border border-slate-200 text-slate-500 font-bold rounded-2xl hover:bg-slate-50 transition uppercase text-xs">Cancelar</button>
+            <div className="p-8 space-y-6">
+               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Institución</label><input className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-black" value={socialHistoryForm.schoolName} onChange={e => setSocialHistoryForm({...socialHistoryForm, schoolName: e.target.value})} /></div>
+               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Composición Familiar</label><textarea className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold h-24 resize-none text-black" value={socialHistoryForm.familyComposition} onChange={e => setSocialHistoryForm({...socialHistoryForm, familyComposition: e.target.value})} /></div>
+               <button onClick={handleSaveSocialHistory} className="w-full bg-purple-600 text-white font-black py-4 rounded-3xl hover:bg-black transition uppercase text-xs tracking-widest">Aplicar Cambios</button>
             </div>
           </div>
         </div>

@@ -30,9 +30,11 @@ const AthleteDetail: React.FC<AthleteDetailProps> = ({ athlete, user, onUpdate, 
     tutorPhone: athlete.tutorPhone || ''
   });
 
-  const canEditInfo = user.role === UserRole.ADMIN || user.role === UserRole.COACH;
-  const canSeeSocial = user.role === UserRole.ADMIN || user.role === UserRole.SOCIAL;
-  const canSeePhysio = user.role === UserRole.ADMIN || user.role === UserRole.FISIO;
+  const canEditInfo = user.permissions.teams === 'edit' || user.role === UserRole.ADMIN;
+  const canSeeSocial = user.permissions.social !== 'none';
+  const canEditSocial = user.permissions.social === 'edit';
+  const canSeePhysio = user.permissions.physio !== 'none';
+  const canEditPhysio = user.permissions.physio === 'edit';
   const canDelete = user.role === UserRole.ADMIN;
 
   const getMonthsOwed = (ath: Athlete) => {
@@ -42,7 +44,6 @@ const AthleteDetail: React.FC<AthleteDetailProps> = ({ athlete, user, onUpdate, 
     const currentMonthIndex = now.getMonth();
     const owed: string[] = [];
 
-    // Verificamos año actual
     for (let i = 0; i <= currentMonthIndex; i++) {
       const month = MONTHS[i];
       const key = `${currentYear}-${month}`;
@@ -51,7 +52,6 @@ const AthleteDetail: React.FC<AthleteDetailProps> = ({ athlete, user, onUpdate, 
       }
     }
     
-    // Verificamos meses con adeudo de años previos (registrados con 0)
     if (ath.payments) {
         Object.keys(ath.payments).forEach(key => {
             if (ath.payments![key] === 0 && !key.startsWith(`${currentYear}-`)) {
@@ -92,6 +92,7 @@ const AthleteDetail: React.FC<AthleteDetailProps> = ({ athlete, user, onUpdate, 
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canEditInfo) return;
     const file = e.target.files?.[0];
     if (file) {
       const newFile: AthleteFile = {
@@ -246,7 +247,12 @@ const AthleteDetail: React.FC<AthleteDetailProps> = ({ athlete, user, onUpdate, 
 
         {activeTab === 'social' && (
           <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-400">
-             <div className="flex justify-between items-center border-b border-slate-100 pb-4"><div><h3 className="text-xl font-bold text-slate-800">Área Social e Intervenciones</h3><p className="text-slate-400 text-xs">Seguimiento socio-emocional y conductual</p></div><button className="bg-purple-600 text-white px-6 py-3 rounded-2xl hover:bg-purple-700 transition text-xs font-black uppercase tracking-widest shadow-lg shadow-purple-900/10"><i className="fas fa-plus mr-2"></i> Nuevo Reporte</button></div>
+             <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+                <div><h3 className="text-xl font-bold text-slate-800">Área Social e Intervenciones</h3><p className="text-slate-400 text-xs">Seguimiento socio-emocional y conductual</p></div>
+                {canEditSocial && (
+                  <button className="bg-purple-600 text-white px-6 py-3 rounded-2xl hover:bg-purple-700 transition text-xs font-black uppercase tracking-widest shadow-lg shadow-purple-900/10"><i className="fas fa-plus mr-2"></i> Nuevo Reporte</button>
+                )}
+             </div>
             <div className="grid gap-6">
               {(athlete.socialReports || []).map(report => (
                 <div key={report.id} className="border border-slate-100 bg-white p-6 rounded-3xl shadow-sm hover:shadow-md transition">
@@ -280,7 +286,12 @@ const AthleteDetail: React.FC<AthleteDetailProps> = ({ athlete, user, onUpdate, 
               </div>
             </div>
             <div className="space-y-6">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-4"><div><h3 className="text-xl font-bold text-slate-800">Bitácora Clínica</h3><p className="text-slate-400 text-xs">Registro detallado de consultas de fisioterapia</p></div></div>
+              <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+                <div><h3 className="text-xl font-bold text-slate-800">Bitácora Clínica</h3><p className="text-slate-400 text-xs">Registro detallado de consultas de fisioterapia</p></div>
+                {canEditPhysio && (
+                   <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest italic bg-emerald-50 px-3 py-1 rounded-lg">Edición habilitada en módulo principal</span>
+                )}
+              </div>
               <div className="grid gap-6">
                 {(athlete.physioConsultations || []).map(consult => (
                   <div key={consult.id} className="border border-slate-100 bg-white p-7 rounded-[2rem] shadow-sm hover:shadow-md transition group">

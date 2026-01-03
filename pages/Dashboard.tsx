@@ -70,7 +70,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     const currentMonthIndex = now.getMonth();
     const owed: string[] = [];
 
-    // Verificamos año actual
     for (let i = 0; i <= currentMonthIndex; i++) {
       const month = MONTHS[i];
       const key = `${currentYear}-${month}`;
@@ -79,22 +78,11 @@ const Dashboard: React.FC<DashboardProps> = ({
       }
     }
     
-    // Verificamos si hay registros de deuda del año anterior
-    const prevYear = currentYear - 1;
-    for (let i = 0; i < 12; i++) {
-        const month = MONTHS[i];
-        const key = `${prevYear}-${month}`;
-        if (athlete.payments && athlete.payments[key] === 0) {
-            owed.push(`${month} ${prevYear}`);
-        }
-    }
-
     return owed;
   };
 
   const today = new Date();
   const currentMonthName = today.toLocaleString('es-ES', { month: 'long' });
-  const daysInMonth = new Array(31).fill(0).map((_, i) => i + 1);
 
   const handleAddAthleteSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,14 +102,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     onAddAthlete(athlete);
     setShowAddModal(false);
     setNewAthlete({
-      firstName: '',
-      lastName: '',
-      dob: '',
-      category: '',
-      position: '',
-      isScholarship: false,
-      tutorName: '',
-      tutorPhone: ''
+      firstName: '', lastName: '', dob: '', category: '', position: '', isScholarship: false, tutorName: '', tutorPhone: ''
     });
   };
 
@@ -147,14 +128,16 @@ const Dashboard: React.FC<DashboardProps> = ({
           <p className="text-slate-500 font-medium">Panel de control unificado para la academia.</p>
         </div>
         <div className="flex gap-3">
-          {(user.role === UserRole.ADMIN || user.role === UserRole.COACH) && (
+          {user.permissions.teams === 'edit' && (
             <button onClick={() => setShowAddModal(true)} className="bg-red-900 text-white px-6 py-3 rounded-2xl font-black hover:bg-black transition shadow-xl shadow-red-900/20 uppercase text-xs tracking-widest flex items-center">
               <i className="fas fa-plus mr-2"></i> Nuevo Deportista
             </button>
           )}
-          <button onClick={() => setShowAddEventModal(true)} className="bg-white text-slate-700 border border-slate-200 px-6 py-3 rounded-2xl font-black hover:bg-slate-50 transition shadow-sm uppercase text-xs tracking-widest flex items-center">
-            <i className="fas fa-calendar-plus mr-2"></i> Nuevo Aviso
-          </button>
+          {user.role === UserRole.ADMIN && (
+            <button onClick={() => setShowAddEventModal(true)} className="bg-white text-slate-700 border border-slate-200 px-6 py-3 rounded-2xl font-black hover:bg-slate-50 transition shadow-sm uppercase text-xs tracking-widest flex items-center">
+              <i className="fas fa-calendar-plus mr-2"></i> Nuevo Aviso
+            </button>
+          )}
         </div>
       </header>
 
@@ -184,7 +167,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Directorio de Atletas</h2>
               <div className="relative w-full md:w-72">
                 <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                <input type="text" placeholder="Buscar nombre o categoría..." className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-red-500 outline-none text-sm font-bold text-black" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                <input type="text" placeholder="Buscar nombre..." className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-bold text-black" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -224,7 +207,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <td className="px-8 py-4 text-right">
                           <div className="flex justify-end space-x-2">
                             <button onClick={() => onViewAthlete(athlete.id)} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition" title="Ver Ficha"><i className="fas fa-id-card text-sm"></i></button>
-                            {(user.role === UserRole.ADMIN || user.role === UserRole.FISIO) && (
+                            {user.permissions.physio !== 'none' && (
                               <button onClick={() => onSendToPhysio(athlete.id)} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition" title="Fisioterapia"><i className="fas fa-plus-square text-sm"></i></button>
                             )}
                           </div>
@@ -232,9 +215,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                       </tr>
                     );
                   })}
-                  {filteredAthletes.length === 0 && (
-                    <tr><td colSpan={4} className="text-center py-20 text-slate-400 italic font-medium">No se encontraron deportistas.</td></tr>
-                  )}
                 </tbody>
               </table>
             </div>
@@ -248,26 +228,16 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <h3 className="text-lg font-black uppercase tracking-tighter italic">Avisos Academia</h3>
                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-red-400">{currentMonthName}</span>
               </div>
-              <div className="grid grid-cols-7 gap-1 mb-8">
-                {['D','L','M','M','J','V','S'].map(d => (<span key={d} className="text-[8px] font-black text-center text-slate-500">{d}</span>))}
-                {daysInMonth.slice(0, 14).map(d => {
-                  const hasEvent = events.some(e => new Date(e.date).getDate() === d);
-                  return (<div key={d} className={`h-1.5 w-1.5 rounded-full mx-auto ${hasEvent ? 'bg-red-500 animate-pulse shadow-lg shadow-red-500/50' : 'bg-slate-700'}`}></div>);
-                })}
-              </div>
               <div className="space-y-6 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                {events.length > 0 ? events.map(event => (
+                {events.map(event => (
                   <div key={event.id} className="group border-l-2 border-red-500 pl-4 py-1 hover:bg-white/5 transition rounded-r-lg">
                     <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">{event.date}</p>
                     <h4 className="font-bold text-sm mb-1 group-hover:text-red-300 transition">{event.title}</h4>
                     <p className="text-xs text-slate-400 line-clamp-2">{event.description}</p>
                   </div>
-                )) : (
-                  <div className="text-center py-6 opacity-40"><i className="fas fa-bell-slash mb-2 block"></i><p className="text-xs italic">No hay avisos hoy</p></div>
-                )}
+                ))}
               </div>
             </div>
-            <div className="absolute top-0 right-0 p-8 opacity-5"><i className="fas fa-calendar-alt text-8xl"></i></div>
           </div>
 
           <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm">
@@ -276,23 +246,30 @@ const Dashboard: React.FC<DashboardProps> = ({
               <i className="fas fa-futbol text-red-600"></i>
             </h3>
             <div className="space-y-5">
-              {matches.length > 0 ? matches.slice(0, 4).map(match => {
+              {matches.slice(0, 4).map(match => {
                 const team = teams.find(t => t.id === match.teamId);
                 return (
                   <div key={match.id} className="flex items-center space-x-4 p-3 hover:bg-slate-50 rounded-2xl transition border border-transparent hover:border-slate-100 group">
-                    <div className="bg-red-900 w-11 h-11 rounded-2xl flex flex-col items-center justify-center text-white shadow-lg flex-shrink-0 group-hover:bg-black transition">
-                      <span className="text-[8px] font-black uppercase leading-none mb-1 opacity-70">{match.date.split('-')[1]}</span>
+                    <div className="bg-red-900 w-11 h-11 rounded-2xl flex flex-col items-center justify-center text-white flex-shrink-0">
                       <span className="text-lg font-black leading-none">{match.date.split('-')[2]}</span>
                     </div>
-                    <div className="overflow-hidden">
-                      <p className="font-black text-xs text-slate-800 truncate uppercase italic tracking-tighter">{team?.ageCategory} {team?.category} vs {match.opponent}</p>
-                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{match.location} • {match.time}</p>
+                    <div className="flex-grow overflow-hidden">
+                      <p className="font-black text-xs text-slate-800 truncate uppercase italic tracking-tighter">{team?.ageCategory} vs {match.opponent}</p>
+                      <div className="flex items-center gap-1.5 overflow-hidden">
+                        <i className="fas fa-location-dot text-[8px] text-red-600 flex-shrink-0"></i>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest truncate">
+                          {match.location}
+                        </p>
+                        {match.locationUri && (
+                          <a href={match.locationUri} target="_blank" rel="noopener noreferrer" className="text-blue-500 text-[8px] hover:text-blue-700">
+                             <i className="fas fa-map"></i>
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
-              }) : (
-                <div className="text-center py-8"><p className="text-slate-400 text-xs italic">Sin encuentros próximos</p></div>
-              )}
+              })}
             </div>
           </div>
         </div>
@@ -300,25 +277,20 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 max-h-[90vh] flex flex-col">
-            <div className="bg-red-900 p-8 text-white flex justify-between items-center flex-shrink-0">
-              <div>
-                <h3 className="text-2xl font-black uppercase tracking-tighter italic">Nuevo Atleta</h3>
-                <p className="text-red-200 text-xs font-bold uppercase tracking-widest opacity-80">Registrando en base de datos oficial</p>
-              </div>
-              <button onClick={() => setShowAddModal(false)} className="bg-white/20 w-10 h-10 rounded-full hover:bg-white/40 transition flex items-center justify-center"><i className="fas fa-times text-xl"></i></button>
+          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="bg-red-900 p-8 text-white flex justify-between items-center">
+              <h3 className="text-2xl font-black uppercase italic tracking-tighter">Nuevo Atleta</h3>
+              <button onClick={() => setShowAddModal(false)} className="text-white/40 hover:text-white transition"><i className="fas fa-times text-xl"></i></button>
             </div>
-            <div className="overflow-y-auto custom-scrollbar flex-grow">
-              <form onSubmit={handleAddAthleteSubmit} className="p-10 grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nombre(s)</label><input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-red-500 font-bold text-black" value={newAthlete.firstName} onChange={e => setNewAthlete({...newAthlete, firstName: e.target.value})} /></div>
-                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Apellido(s)</label><input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-red-500 font-bold text-black" value={newAthlete.lastName} onChange={e => setNewAthlete({...newAthlete, lastName: e.target.value})} /></div>
-                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Nacimiento</label><input type="date" required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-red-500 font-bold text-black" value={newAthlete.dob} onChange={e => setNewAthlete({...newAthlete, dob: e.target.value})} /></div>
-                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Categoría</label><input required placeholder="Sub-XX" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-red-500 font-bold text-black" value={newAthlete.category} onChange={e => setNewAthlete({...newAthlete, category: e.target.value})} /></div>
-                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tutor / Padre</label><input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-red-500 font-bold text-black" value={newAthlete.tutorName} onChange={e => setNewAthlete({...newAthlete, tutorName: e.target.value})} /></div>
-                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Teléfono Tutor</label><input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-red-500 font-bold text-black" value={newAthlete.tutorPhone} onChange={e => setNewAthlete({...newAthlete, tutorPhone: e.target.value})} /></div>
-                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Posición de Juego</label><input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-red-500 font-bold text-black" value={newAthlete.position} onChange={e => setNewAthlete({...newAthlete, position: e.target.value})} /></div>
-                <div className="flex items-center space-x-3 p-4"><input type="checkbox" id="modal-beca" className="w-5 h-5 rounded" checked={newAthlete.isScholarship} onChange={e => setNewAthlete({...newAthlete, isScholarship: e.target.checked})} /><label htmlFor="modal-beca" className="text-xs font-bold text-slate-700">Cuenta con Beca</label></div>
-                <div className="md:col-span-2 pt-6 flex gap-4"><button type="submit" className="flex-1 bg-red-900 text-white font-black py-5 rounded-3xl hover:bg-black transition uppercase text-sm tracking-widest shadow-xl">Registrar</button><button type="button" onClick={() => setShowAddModal(false)} className="px-8 bg-slate-100 text-slate-500 font-bold rounded-3xl uppercase text-xs">Cancelar</button></div>
+            <div className="overflow-y-auto custom-scrollbar flex-grow p-10">
+              <form onSubmit={handleAddAthleteSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nombre</label><input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={newAthlete.firstName} onChange={e => setNewAthlete({...newAthlete, firstName: e.target.value})} /></div>
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Apellido</label><input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={newAthlete.lastName} onChange={e => setNewAthlete({...newAthlete, lastName: e.target.value})} /></div>
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nacimiento</label><input type="date" required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={newAthlete.dob} onChange={e => setNewAthlete({...newAthlete, dob: e.target.value})} /></div>
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Categoría</label><input required placeholder="Sub-XX" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={newAthlete.category} onChange={e => setNewAthlete({...newAthlete, category: e.target.value})} /></div>
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Padre/Tutor</label><input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={newAthlete.tutorName} onChange={e => setNewAthlete({...newAthlete, tutorName: e.target.value})} /></div>
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Teléfono</label><input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={newAthlete.tutorPhone} onChange={e => setNewAthlete({...newAthlete, tutorPhone: e.target.value})} /></div>
+                <div className="md:col-span-2 pt-6 flex gap-4"><button type="submit" className="flex-1 bg-red-900 text-white font-black py-4 rounded-3xl uppercase text-sm tracking-widest">Registrar</button><button type="button" onClick={() => setShowAddModal(false)} className="px-8 bg-slate-100 text-slate-500 font-bold rounded-3xl">Cancelar</button></div>
               </form>
             </div>
           </div>
@@ -326,17 +298,27 @@ const Dashboard: React.FC<DashboardProps> = ({
       )}
 
       {showAddEventModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 max-h-[90vh] flex flex-col">
-            <div className="bg-slate-900 p-8 text-white flex justify-between items-center flex-shrink-0"><h3 className="text-xl font-black uppercase tracking-tighter italic">Crear Aviso</h3><button onClick={() => setShowAddEventModal(false)} className="text-white/40 hover:text-white transition"><i className="fas fa-times text-xl"></i></button></div>
-            <div className="overflow-y-auto custom-scrollbar flex-grow">
-              <form onSubmit={handleAddEventSubmit} className="p-8 space-y-6">
-                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Título del Aviso</label><input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-red-500 font-bold text-black" value={newEventData.title} onChange={e => setNewEventData({...newEventData, title: e.target.value})} /></div>
-                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Programada</label><input type="date" required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-red-500 font-bold text-black" value={newEventData.date} onChange={e => setNewEventData({...newEventData, date: e.target.value})} /></div>
-                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descripción / Detalles</label><textarea required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-red-500 font-medium h-32 resize-none text-black" value={newEventData.description} onChange={e => setNewEventData({...newEventData, description: e.target.value})} /></div>
-                <button type="submit" className="w-full bg-red-600 text-white font-black py-5 rounded-3xl hover:bg-red-700 transition uppercase text-sm tracking-widest shadow-xl shadow-red-900/20">Publicar en el Muro</button>
-              </form>
-            </div>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+             <div className="bg-slate-900 p-8 text-white flex justify-between items-center">
+                <h3 className="text-xl font-black uppercase italic">Publicar Aviso</h3>
+                <button onClick={() => setShowAddEventModal(false)} className="text-white/40"><i className="fas fa-times text-xl"></i></button>
+             </div>
+             <form onSubmit={handleAddEventSubmit} className="p-8 space-y-6">
+                <div className="space-y-1">
+                   <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Título</label>
+                   <input className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-800" value={newEventData.title} onChange={e => setNewEventData({...newEventData, title: e.target.value})} required />
+                </div>
+                <div className="space-y-1">
+                   <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Fecha de Publicación</label>
+                   <input type="date" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold" value={newEventData.date} onChange={e => setNewEventData({...newEventData, date: e.target.value})} required />
+                </div>
+                <div className="space-y-1">
+                   <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Mensaje</label>
+                   <textarea className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-medium h-32 resize-none" value={newEventData.description} onChange={e => setNewEventData({...newEventData, description: e.target.value})} required />
+                </div>
+                <button type="submit" className="w-full bg-red-900 text-white py-5 rounded-3xl font-black uppercase text-xs tracking-widest">Publicar</button>
+             </form>
           </div>
         </div>
       )}
