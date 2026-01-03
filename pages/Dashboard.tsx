@@ -92,6 +92,8 @@ const Dashboard: React.FC<DashboardProps> = ({
       photo: `https://picsum.photos/seed/${Math.random()}/200/200`,
       monthlyDebt: 0,
       physioDebt: 0,
+      // Fix: Add missing monthlyTherapyDebt property required by Athlete interface
+      monthlyTherapyDebt: 0,
       files: [],
       socialReports: [],
       physioConsultations: [],
