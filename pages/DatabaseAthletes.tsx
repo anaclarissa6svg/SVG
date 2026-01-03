@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Athlete } from '../types';
 import * as XLSX from 'xlsx';
 
@@ -13,10 +13,9 @@ const MONTHS = [
 ];
 
 const DatabaseAthletes: React.FC<DatabaseAthletesProps> = ({ athletes }) => {
-  const [isUploading, setIsUploading] = useState(false);
   const currentYear = new Date().getFullYear();
 
-  const generateWorkbook = () => {
+  const generateExcelBlob = () => {
     const data = athletes.map(a => {
       const athleteData: any = {
         'ID': a.id,
@@ -40,28 +39,21 @@ const DatabaseAthletes: React.FC<DatabaseAthletesProps> = ({ athletes }) => {
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Pagos");
-    return workbook;
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    return new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   };
 
   const exportToExcel = () => {
     try {
-      const workbook = generateWorkbook();
-      XLSX.writeFile(workbook, `Base_Pagos_Savage_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
+      const blob = generateExcelBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Base_Pagos_Savage_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
+      a.click();
     } catch (e) {
       alert("Error al descargar el archivo Excel.");
     }
-  };
-
-  const saveToDrive = async () => {
-    const CLIENT_ID = 'TU_CLIENT_ID_DE_GOOGLE.apps.googleusercontent.com';
-    
-    if (CLIENT_ID.includes('TU_CLIENT_ID')) {
-      alert('CONFIGURACIÓN DE NUBE: Para usar OneDrive o Google Drive, se requiere una clave API activa. Por seguridad, utilice "Descargar Excel" para obtener su reporte ahora mismo.');
-      return;
-    }
-
-    setIsUploading(true);
-    // ... lógica OAuth ...
   };
 
   return (
@@ -75,14 +67,6 @@ const DatabaseAthletes: React.FC<DatabaseAthletesProps> = ({ athletes }) => {
           <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Sincronización detallada de ingresos y becas</p>
         </div>
         <div className="flex gap-2">
-          <button 
-            onClick={saveToDrive}
-            disabled={isUploading}
-            className="bg-white border-2 border-slate-200 text-slate-400 px-6 py-3 rounded-2xl font-black hover:bg-slate-50 transition flex items-center uppercase text-[10px] tracking-widest"
-          >
-            <i className="fab fa-google-drive mr-2"></i>
-            Nube
-          </button>
           <button 
             onClick={exportToExcel}
             className="bg-red-900 text-white px-8 py-3 rounded-2xl font-black hover:bg-black transition flex items-center shadow-xl shadow-red-900/20 uppercase text-[10px] tracking-widest"

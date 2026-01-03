@@ -9,11 +9,9 @@ interface DatabasePhysioProps {
 }
 
 const DatabasePhysio: React.FC<DatabasePhysioProps> = ({ athletes }) => {
-  const [isUploading, setIsUploading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
 
-  // Aplanar todas las consultas
   const records = athletes.flatMap(athlete => 
     athlete.physioConsultations.map(c => ({
       ...c,
@@ -22,7 +20,7 @@ const DatabasePhysio: React.FC<DatabasePhysioProps> = ({ athletes }) => {
     }))
   ).sort((a, b) => new Date(a.date.split('/').reverse().join('-')).getTime() - new Date(b.date.split('/').reverse().join('-')).getTime());
 
-  const generateWorkbook = () => {
+  const generateExcelBlob = () => {
     const data = records.map(r => ({
       'Fecha': r.date,
       'Deportista': r.athleteName,
@@ -36,15 +34,20 @@ const DatabasePhysio: React.FC<DatabasePhysioProps> = ({ athletes }) => {
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Fisioterapia");
-    return workbook;
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    return new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   };
 
   const exportToExcel = () => {
     try {
-      const workbook = generateWorkbook();
-      XLSX.writeFile(workbook, `Reporte_Fisioterapia_Savage_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
+      const blob = generateExcelBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Reporte_Fisioterapia_Savage_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
+      a.click();
     } catch (error) {
-      alert("Error al generar el archivo Excel local.");
+      alert("Error al generar el archivo Excel.");
     }
   };
 
@@ -56,27 +59,14 @@ const DatabasePhysio: React.FC<DatabasePhysioProps> = ({ athletes }) => {
       const dataSummary = records.slice(0, 20).map(r => `${r.athleteName}: ${r.diagnosis}`).join(', ');
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Analiza este resumen de fisioterapia de una academia de fútbol y genera un informe ejecutivo breve con tendencias de lesiones y recomendaciones: ${dataSummary}`,
+        contents: `Analiza este resumen de fisioterapia de una academia de fútbol y genera un informe ejecutivo breve con tendencias de lesiones y recomendaciones preventivas: ${dataSummary}`,
       });
       setAiAnalysis(response.text || "No se pudo generar el análisis.");
     } catch (error) {
-      console.error(error);
-      setAiAnalysis("Error al conectar con la IA para el análisis.");
+      setAiAnalysis("Error al conectar con la IA.");
     } finally {
       setIsAnalyzing(false);
     }
-  };
-
-  const saveToDrive = async () => {
-    const CLIENT_ID = 'TU_CLIENT_ID_DE_GOOGLE.apps.googleusercontent.com'; // REEMPLAZAR CON CLIENT ID REAL
-    
-    if (CLIENT_ID.includes('TU_CLIENT_ID')) {
-      alert('CONFIGURACIÓN REQUERIDA: Para guardar directamente en Google Drive o OneDrive, el administrador debe configurar un Client ID real en el código. Por ahora, use "Exportar Excel" para descargar el archivo a su dispositivo.');
-      return;
-    }
-
-    setIsUploading(true);
-    // ... resto de la lógica de OAuth ...
   };
 
   return (
@@ -97,13 +87,6 @@ const DatabasePhysio: React.FC<DatabasePhysioProps> = ({ athletes }) => {
           >
             <i className={`fas fa-robot mr-2 ${isAnalyzing ? 'fa-spin' : ''}`}></i>
             {isAnalyzing ? 'Analizando...' : 'Análisis IA'}
-          </button>
-          <button 
-            onClick={saveToDrive}
-            className="bg-white border-2 border-slate-200 text-slate-400 px-5 py-3 rounded-2xl font-black hover:bg-slate-50 transition flex items-center uppercase text-[10px] tracking-widest"
-          >
-            <i className="fab fa-google-drive mr-2"></i>
-            Guardar en Nube
           </button>
           <button 
             onClick={exportToExcel}
@@ -132,7 +115,7 @@ const DatabasePhysio: React.FC<DatabasePhysioProps> = ({ athletes }) => {
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest border border-slate-700">Categoría</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest border border-slate-700">Diagnóstico</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest border border-slate-700">Tratamiento</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest border border-slate-700">Especialista</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest border border-slate-700 text-center">Especialista</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -143,7 +126,7 @@ const DatabasePhysio: React.FC<DatabasePhysioProps> = ({ athletes }) => {
                   <td className="px-6 py-4 text-[10px] font-black text-red-600 border border-slate-50 uppercase">{r.category}</td>
                   <td className="px-6 py-4 text-xs text-slate-600 border border-slate-50 font-medium">{r.diagnosis}</td>
                   <td className="px-6 py-4 text-xs text-slate-600 border border-slate-50 font-medium">{r.treatment}</td>
-                  <td className="px-6 py-4 text-[10px] font-black text-slate-400 border border-slate-50 uppercase">{r.createdBy}</td>
+                  <td className="px-6 py-4 text-[10px] font-black text-slate-400 border border-slate-50 uppercase text-center">{r.createdBy}</td>
                 </tr>
               ))}
               {records.length === 0 && (
