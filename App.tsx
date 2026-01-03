@@ -167,7 +167,17 @@ const App: React.FC = () => {
         ) : null;
       case 'teams':
         return currentUser.permissions.teams !== 'none' ? (
-          <TeamsPage athletes={athletes} teams={teams} setTeams={setTeams} matches={matches} setMatches={setMatches} user={currentUser} onUpdateAthlete={handleUpdateAthlete} />
+          <TeamsPage 
+            athletes={athletes} 
+            teams={teams} 
+            setTeams={setTeams} 
+            matches={matches} 
+            setMatches={setMatches} 
+            user={currentUser} 
+            onUpdateAthlete={handleUpdateAthlete}
+            users={users}
+            setUsers={setUsers}
+          />
         ) : null;
       case 'audit':
         return currentUser.role === UserRole.ADMIN ? <AuditLogPage logs={auditLogs} /> : null;

@@ -1,7 +1,6 @@
 
 import React, { useState, useMemo, useRef } from 'react';
 import { Athlete, Team, Match, User, UserRole, PhysicalTest } from '../types';
-import { MOCK_USERS } from '../constants';
 import { GoogleGenAI } from "@google/genai";
 
 interface TeamsPageProps {
@@ -12,13 +11,18 @@ interface TeamsPageProps {
   setMatches: (matches: Match[]) => void;
   user: User;
   onUpdateAthlete?: (athlete: Athlete) => void;
+  users?: User[];
+  setUsers?: (users: User[]) => void;
 }
 
-const TeamsPage: React.FC<TeamsPageProps> = ({ athletes, teams, setTeams, matches, setMatches, user, onUpdateAthlete }) => {
-  const [activeTab, setActiveTab] = useState<'teams' | 'matches' | 'phys_tests'>('teams');
+const TeamsPage: React.FC<TeamsPageProps> = ({ 
+  athletes, teams, setTeams, matches, setMatches, user, onUpdateAthlete, users = [], setUsers 
+}) => {
+  const [activeTab, setActiveTab] = useState<'teams' | 'matches' | 'phys_tests' | 'coaches'>('teams');
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [showTestModal, setShowTestModal] = useState(false);
+  const [showCoachModal, setShowCoachModal] = useState(false);
   
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [selectedTeamForRoster, setSelectedTeamForRoster] = useState<Team | null>(null);
@@ -42,14 +46,18 @@ const TeamsPage: React.FC<TeamsPageProps> = ({ athletes, teams, setTeams, matche
     observations: ''
   });
 
+  const [coachForm, setCoachForm] = useState({ name: '', username: '', password: '' });
+
   // States for Predictive Maps Search
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
   const [locationSearchResults, setLocationSearchResults] = useState<{title: string, uri: string}[]>([]);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const searchTimeoutRef = useRef<number | null>(null);
 
-  const canEdit = user.permissions.teams === 'edit';
-  const coaches = useMemo(() => MOCK_USERS.filter(u => u.role === UserRole.COACH || u.role === UserRole.ADMIN), []);
+  const isAdmin = user.role === UserRole.ADMIN;
+  const canEdit = user.permissions.teams === 'edit' || isAdmin;
+  
+  const coachesList = useMemo(() => users.filter(u => u.role === UserRole.COACH), [users]);
 
   const handleOpenTeamModal = (team?: Team) => {
     if (!canEdit) return;
@@ -107,6 +115,36 @@ const TeamsPage: React.FC<TeamsPageProps> = ({ athletes, teams, setTeams, matche
     alert('Prueba física registrada exitosamente.');
   };
 
+  const handleAddCoach = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isAdmin || !setUsers) return;
+
+    const isDuplicate = users.some(u => u.username.toLowerCase() === coachForm.username.toLowerCase());
+    if (isDuplicate) {
+      alert('El nombre de usuario ya existe.');
+      return;
+    }
+
+    const newCoach: User = {
+      id: `coach-${Date.now()}`,
+      name: coachForm.name,
+      username: coachForm.username,
+      password: coachForm.password,
+      role: UserRole.COACH,
+      permissions: {
+        payments: 'none',
+        physio: 'view',
+        social: 'none',
+        teams: 'edit'
+      }
+    };
+
+    setUsers([...users, newCoach]);
+    setCoachForm({ name: '', username: '', password: '' });
+    setShowCoachModal(false);
+    alert('Coach registrado correctamente.');
+  };
+
   const suggestedAthletesForTest = useMemo(() => {
     if (testAthleteSearch.length < 2) return [];
     return athletes.filter(a => 
@@ -114,7 +152,6 @@ const TeamsPage: React.FC<TeamsPageProps> = ({ athletes, teams, setTeams, matche
     ).slice(0, 5);
   }, [athletes, testAthleteSearch]);
 
-  // Fix: Add missing filteredAthletesForRoster to resolve error on line 348
   const filteredAthletesForRoster = useMemo(() => {
     return athletes.filter(a => 
       `${a.firstName} ${a.lastName}`.toLowerCase().includes(rosterSearch.toLowerCase()) ||
@@ -130,7 +167,6 @@ const TeamsPage: React.FC<TeamsPageProps> = ({ athletes, teams, setTeams, matche
     setIsSearchingLocation(true);
     setShowLocationDropdown(true);
     try {
-      // @google/genai guidelines: Use named parameter for apiKey and gemini-2.5-flash for maps grounding.
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
@@ -168,10 +204,15 @@ const TeamsPage: React.FC<TeamsPageProps> = ({ athletes, teams, setTeams, matche
         <div>
           <h1 className="text-3xl font-black text-slate-800 tracking-tight italic uppercase">Módulo Deportivo</h1>
         </div>
-        <div className="flex bg-slate-900 p-1.5 rounded-2xl w-full sm:w-auto shadow-2xl">
-          <button onClick={() => setActiveTab('teams')} className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-black text-[10px] uppercase ${activeTab === 'teams' ? 'bg-red-600 text-white' : 'text-slate-400'}`}>EQUIPOS</button>
-          <button onClick={() => setActiveTab('matches')} className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-black text-[10px] uppercase ${activeTab === 'matches' ? 'bg-orange-600 text-white' : 'text-slate-400'}`}>PARTIDOS</button>
-          <button onClick={() => setActiveTab('phys_tests')} className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-black text-[10px] uppercase ${activeTab === 'phys_tests' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>PRUEBAS</button>
+        <div className="flex bg-slate-900 p-1.5 rounded-2xl w-full sm:w-auto shadow-2xl overflow-x-auto custom-scrollbar no-scrollbar">
+          <button onClick={() => setActiveTab('teams')} className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-black text-[10px] uppercase transition-all ${activeTab === 'teams' ? 'bg-red-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>EQUIPOS</button>
+          <button onClick={() => setActiveTab('matches')} className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-black text-[10px] uppercase transition-all ${activeTab === 'matches' ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>PARTIDOS</button>
+          <button onClick={() => setActiveTab('phys_tests')} className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-black text-[10px] uppercase transition-all ${activeTab === 'phys_tests' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>PRUEBAS</button>
+          {isAdmin && (
+            <button onClick={() => setActiveTab('coaches')} className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-black text-[10px] uppercase transition-all ${activeTab === 'coaches' ? 'bg-slate-700 text-white shadow-lg' : 'text-red-500 hover:bg-red-500/10'}`}>
+              <i className="fas fa-user-shield mr-1"></i> COACHES
+            </button>
+          )}
         </div>
       </header>
 
@@ -337,6 +378,72 @@ const TeamsPage: React.FC<TeamsPageProps> = ({ athletes, teams, setTeams, matche
         </div>
       )}
 
+      {activeTab === 'coaches' && isAdmin && (
+        <div className="space-y-8 animate-in fade-in duration-500">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h3 className="text-2xl font-black text-slate-800 uppercase italic tracking-tighter">Gestión de Coaches</h3>
+              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Control exclusivo de personal técnico</p>
+            </div>
+            <button 
+              onClick={() => setShowCoachModal(true)}
+              className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-black transition flex items-center"
+            >
+              <i className="fas fa-user-plus mr-2"></i> Registrar Coach
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {coachesList.map(coach => (
+              <div key={coach.id} className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex items-center space-x-4">
+                <div className="w-12 h-12 rounded-2xl bg-red-900 text-white flex items-center justify-center font-black italic">
+                  {coach.name.charAt(0)}
+                </div>
+                <div>
+                  <p className="font-black text-slate-800 uppercase italic text-sm">{coach.name}</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">@{coach.username}</p>
+                </div>
+              </div>
+            ))}
+            {coachesList.length === 0 && (
+              <div className="col-span-full py-20 text-center bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
+                <p className="text-slate-400 font-bold italic">No hay coaches registrados todavía.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL AGREGAR COACH - EXCLUSIVO ADMIN */}
+      {showCoachModal && isAdmin && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-[250] p-4">
+          <div className="bg-white rounded-[3rem] w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+            <div className="bg-[#2d0000] p-8 text-white flex justify-between items-center">
+              <div>
+                <h3 className="text-2xl font-black uppercase italic tracking-tighter">Nuevo Coach</h3>
+                <p className="text-red-500 text-[10px] font-black uppercase tracking-widest">Registro Administrativo</p>
+              </div>
+              <button onClick={() => setShowCoachModal(false)} className="text-white/40 hover:text-white transition"><i className="fas fa-times text-2xl"></i></button>
+            </div>
+            <form onSubmit={handleAddCoach} className="p-8 space-y-6">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Nombre Completo</label>
+                <input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-black text-slate-800 uppercase italic" value={coachForm.name} onChange={e => setCoachForm({...coachForm, name: e.target.value})} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Usuario de Acceso</label>
+                <input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-slate-700" value={coachForm.username} onChange={e => setCoachForm({...coachForm, username: e.target.value})} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Contraseña</label>
+                <input required type="password" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-slate-700" value={coachForm.password} onChange={e => setCoachForm({...coachForm, password: e.target.value})} />
+              </div>
+              <button type="submit" className="w-full bg-red-900 text-white py-5 rounded-3xl font-black uppercase text-xs tracking-widest shadow-2xl shadow-red-900/20">Registrar Coach</button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* MODAL GESTIÓN DE PLANTILLA */}
       {selectedTeamForRoster && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-[200] p-4">
@@ -418,7 +525,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({ athletes, teams, setTeams, matche
                
                <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Observaciones Técnicas</label>
-                  <textarea className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-medium h-24 resize-none" placeholder="Estado de fatiga, técnica, etc..." value={testForm.observations} onChange={e => setTestForm({...testForm, observations: e.target.value})} />
+                  <textarea className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-medium h-24 resize-none" placeholder="Estado de fatiga, técnica, etc..." value={testForm.observations} onChange={e => testForm.observations = e.target.value} />
                </div>
 
                <button 
@@ -435,12 +542,12 @@ const TeamsPage: React.FC<TeamsPageProps> = ({ athletes, teams, setTeams, matche
 
       {showTeamModal && canEdit && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+          <div className="bg-white rounded-[2.5rem] w-full max-md shadow-2xl overflow-hidden animate-in zoom-in duration-300">
             <div className="bg-red-900 p-8 text-white flex justify-between items-center"><h3 className="text-2xl font-black uppercase italic">{editingTeam ? 'Editar Equipo' : 'Nuevo Equipo'}</h3><button onClick={() => setShowTeamModal(false)} className="text-white/40 hover:text-white transition text-2xl"><i className="fas fa-times"></i></button></div>
             <form onSubmit={handleSaveTeam} className="p-8 space-y-6">
               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Rama</label><select className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-black" value={teamForm.category} onChange={(e) => setTeamForm({...teamForm, category: e.target.value})} required><option value="Varonil">Varonil</option><option value="Femenino">Femenino</option><option value="Mixto">Mixto</option></select></div>
               <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Categoría Edad</label><input className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-black" value={teamForm.ageCategory} onChange={(e) => setTeamForm({...teamForm, ageCategory: e.target.value})} required /></div>
-              <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Coach</label><select className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-black" value={teamForm.coachName} onChange={(e) => setTeamForm({...teamForm, coachName: e.target.value})}><option value="">Seleccionar...</option>{coaches.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></div>
+              <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Coach</label><select className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-black" value={teamForm.coachName} onChange={(e) => setTeamForm({...teamForm, coachName: e.target.value})}><option value="">Seleccionar...</option>{users.filter(u => u.role === UserRole.COACH || u.role === UserRole.ADMIN).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></div>
               <button type="submit" className="w-full bg-red-900 text-white py-5 rounded-3xl font-black uppercase text-xs tracking-widest">Guardar</button>
             </form>
           </div>
