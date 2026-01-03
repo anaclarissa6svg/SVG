@@ -24,13 +24,16 @@ const DatabaseAthletes: React.FC<DatabaseAthletesProps> = ({ athletes }) => {
         'Coach': a.coachName || 'Sin Asignar'
       };
 
+      athleteData['Adeudo Año Anterior'] = a.previousYearDebt || 0;
+
       MONTHS.forEach(m => {
         const key = `${currentYear}-${m}`;
         athleteData[m] = a.payments?.[key] || 0;
       });
 
-      athleteData['Adeudo Mensual Total'] = a.monthlyDebt;
-      athleteData['Adeudo Fisio'] = a.physioDebt;
+      athleteData['Adeudo Mensual Ciclo Actual'] = a.monthlyDebt;
+      athleteData['Adeudo Terapia/Fisio'] = (a.physioDebt || 0) + (a.monthlyTherapyDebt || 0);
+      athleteData['BALANCE TOTAL'] = (a.monthlyDebt || 0) + (a.physioDebt || 0) + (a.monthlyTherapyDebt || 0) + (a.previousYearDebt || 0);
       athleteData['Es Becado'] = a.isScholarship ? 'SI' : 'NO';
 
       return athleteData;
@@ -49,7 +52,7 @@ const DatabaseAthletes: React.FC<DatabaseAthletesProps> = ({ athletes }) => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Base_Pagos_Savage_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
+      a.download = `Reporte_Financiero_Savage_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
       a.click();
     } catch (e) {
       alert("Error al descargar el archivo Excel.");
@@ -78,55 +81,58 @@ const DatabaseAthletes: React.FC<DatabaseAthletesProps> = ({ athletes }) => {
 
       <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden">
         <div className="overflow-x-auto custom-scrollbar">
-          <table className="w-full text-left border-collapse table-auto min-w-[1400px]">
+          <table className="w-full text-left border-collapse table-auto min-w-[1600px]">
             <thead>
               <tr className="bg-slate-800 text-white">
                 <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border border-slate-700 sticky left-0 bg-slate-800 z-10 shadow-lg">Deportista</th>
-                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border border-slate-700">Coach</th>
+                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border border-slate-700 text-center bg-slate-900/50">Adeudo Anterior</th>
                 {MONTHS.map(month => (
                   <th key={month} className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border border-slate-700 text-center">
                     {month}
                   </th>
                 ))}
-                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border border-slate-700 text-right">Deuda</th>
+                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border border-slate-700 text-right">Balance Total</th>
                 <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest border border-slate-700 text-center">Beca</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {athletes.map((a, idx) => (
-                <tr key={a.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-red-50/10 hover:bg-red-50/20 transition'}>
-                  <td className="px-4 py-4 border border-slate-100 sticky left-0 bg-inherit z-10 shadow-sm">
-                    <div className="flex flex-col">
-                      <span className="text-xs font-black text-slate-800 uppercase leading-none italic">{a.firstName} {a.lastName}</span>
-                      <span className="text-[8px] font-bold text-red-500 uppercase mt-1 tracking-tighter">{a.category}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 text-[10px] font-bold text-slate-500 border border-slate-100 italic">
-                    {a.coachName || 'N/A'}
-                  </td>
-                  {MONTHS.map(month => {
-                    const key = `${currentYear}-${month}`;
-                    const amount = a.payments?.[key] || 0;
-                    return (
-                      <td key={month} className={`px-4 py-4 text-center border border-slate-100 text-[10px] font-black ${amount > 0 ? 'text-emerald-600 bg-emerald-50/30' : 'text-slate-300'}`}>
-                        {amount > 0 ? `$${amount}` : '-'}
-                      </td>
-                    );
-                  })}
-                  <td className="px-4 py-4 text-right border border-slate-100">
-                    <span className={`text-[11px] font-black ${(a.monthlyDebt + a.physioDebt) > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                      ${(a.monthlyDebt + a.physioDebt).toLocaleString()}
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 text-center border border-slate-100">
-                    {a.isScholarship ? (
-                      <span className="text-[8px] font-black bg-yellow-400 text-white px-2 py-0.5 rounded shadow-sm">SI</span>
-                    ) : (
-                      <span className="text-[8px] font-black text-slate-300">NO</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {athletes.map((a, idx) => {
+                const totalBalance = (a.monthlyDebt || 0) + (a.physioDebt || 0) + (a.monthlyTherapyDebt || 0) + (a.previousYearDebt || 0);
+                return (
+                  <tr key={a.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-red-50/10 hover:bg-red-50/20 transition'}>
+                    <td className="px-4 py-4 border border-slate-100 sticky left-0 bg-inherit z-10 shadow-sm">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-black text-slate-800 uppercase leading-none italic">{a.firstName} {a.lastName}</span>
+                        <span className="text-[8px] font-bold text-red-500 uppercase mt-1 tracking-tighter">{a.category}</span>
+                      </div>
+                    </td>
+                    <td className={`px-4 py-4 text-center border border-slate-100 text-[10px] font-black ${a.previousYearDebt > 0 ? 'text-red-900 bg-red-50/50' : 'text-slate-300'}`}>
+                      {a.previousYearDebt > 0 ? `$${a.previousYearDebt.toLocaleString()}` : '-'}
+                    </td>
+                    {MONTHS.map(month => {
+                      const key = `${currentYear}-${month}`;
+                      const amount = a.payments?.[key] || 0;
+                      return (
+                        <td key={month} className={`px-4 py-4 text-center border border-slate-100 text-[10px] font-black ${amount > 0 ? 'text-emerald-600 bg-emerald-50/30' : 'text-slate-300'}`}>
+                          {amount > 0 ? `$${amount}` : '-'}
+                        </td>
+                      );
+                    })}
+                    <td className="px-4 py-4 text-right border border-slate-100">
+                      <span className={`text-[11px] font-black ${totalBalance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                        ${totalBalance.toLocaleString()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 text-center border border-slate-100">
+                      {a.isScholarship ? (
+                        <span className="text-[8px] font-black bg-yellow-400 text-white px-2 py-0.5 rounded shadow-sm">SI</span>
+                      ) : (
+                        <span className="text-[8px] font-black text-slate-300">NO</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

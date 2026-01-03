@@ -35,7 +35,8 @@ export interface Athlete {
   isScholarship: boolean;
   monthlyDebt: number;
   physioDebt: number;
-  monthlyTherapyDebt: number; // Nueva deuda para becados
+  monthlyTherapyDebt: number;
+  previousYearDebt: number; // Nuevo campo para adeudos históricos
   files: AthleteFile[];
   socialReports: SocialReport[];
   physioConsultations: PhysioConsultation[];

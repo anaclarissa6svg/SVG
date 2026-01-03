@@ -68,8 +68,8 @@ export const MOCK_ATHLETES: Athlete[] = [
     isScholarship: false,
     monthlyDebt: 0,
     physioDebt: 0,
-    // Fix: Add missing monthlyTherapyDebt property required by Athlete interface
     monthlyTherapyDebt: 0,
+    previousYearDebt: 0,
     files: [],
     socialReports: [],
     physioConsultations: [],

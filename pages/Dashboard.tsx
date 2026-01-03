@@ -15,6 +15,7 @@ interface DashboardProps {
 }
 
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+const MONTHLY_FEE = 500;
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   athletes, 
@@ -47,6 +48,8 @@ const Dashboard: React.FC<DashboardProps> = ({
     tutorPhone: ''
   });
 
+  const [prevYearOwedMonths, setPrevYearOwedMonths] = useState<string[]>([]);
+
   const filteredAthletes = useMemo(() => {
     return athletes.filter(a => 
       `${a.firstName} ${a.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -58,7 +61,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     return {
       total: athletes.length,
       scholarships: athletes.filter(a => a.isScholarship).length,
-      debtors: athletes.filter(a => (a.monthlyDebt || 0) > 0 || (a.physioDebt || 0) > 0).length,
+      debtors: athletes.filter(a => (a.monthlyDebt || 0) > 0 || (a.physioDebt || 0) > 0 || (a.previousYearDebt || 0) > 0).length,
       recentMatches: matches.length
     };
   }, [athletes, matches]);
@@ -77,35 +80,46 @@ const Dashboard: React.FC<DashboardProps> = ({
         owed.push(month);
       }
     }
-    
     return owed;
   };
 
-  const today = new Date();
-  const currentMonthName = today.toLocaleString('es-ES', { month: 'long' });
+  const togglePrevYearMonth = (month: string) => {
+    setPrevYearOwedMonths(prev => 
+      prev.includes(month) ? prev.filter(m => m !== month) : [...prev, month]
+    );
+  };
 
   const handleAddAthleteSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const prevYear = new Date().getFullYear() - 1;
+    const initialPayments: { [key: string]: number } = {};
+    
+    // Marcar los meses del año pasado con 0 si se deben
+    prevYearOwedMonths.forEach(m => {
+      initialPayments[`${prevYear}-${m}`] = 0;
+    });
+
     const athlete: Athlete = {
       id: Math.random().toString(36).substr(2, 9),
       ...newAthlete,
       photo: `https://picsum.photos/seed/${Math.random()}/200/200`,
       monthlyDebt: 0,
       physioDebt: 0,
-      // Fix: Add missing monthlyTherapyDebt property required by Athlete interface
       monthlyTherapyDebt: 0,
+      previousYearDebt: prevYearOwedMonths.length * MONTHLY_FEE,
       files: [],
       socialReports: [],
       physioConsultations: [],
       injuryHistory: [],
       physicalTests: [],
-      payments: {}
+      payments: initialPayments
     };
     onAddAthlete(athlete);
     setShowAddModal(false);
     setNewAthlete({
       firstName: '', lastName: '', dob: '', category: '', position: '', isScholarship: false, tutorName: '', tutorPhone: ''
     });
+    setPrevYearOwedMonths([]);
   };
 
   const handleAddEventSubmit = (e: React.FormEvent) => {
@@ -122,11 +136,14 @@ const Dashboard: React.FC<DashboardProps> = ({
     setNewEventData({ title: '', description: '', date: new Date().toISOString().split('T')[0] });
   };
 
+  const today = new Date();
+  const currentMonthName = today.toLocaleString('es-ES', { month: 'long' });
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div>
-          <h1 className="text-4xl font-black text-slate-800 tracking-tight">Dashboard Savage</h1>
+          <h1 className="text-4xl font-black text-slate-800 tracking-tight italic uppercase">Dashboard Savage</h1>
           <p className="text-slate-500 font-medium">Panel de control unificado para la academia.</p>
         </div>
         <div className="flex gap-3">
@@ -185,6 +202,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <tbody className="divide-y divide-slate-50">
                   {filteredAthletes.map(athlete => {
                     const monthsOwed = getMonthsOwed(athlete);
+                    const hasPrevDebt = (athlete.previousYearDebt || 0) > 0;
                     return (
                       <tr key={athlete.id} className="hover:bg-slate-50/50 transition group">
                         <td className="px-8 py-4">
@@ -192,12 +210,18 @@ const Dashboard: React.FC<DashboardProps> = ({
                             <img src={athlete.photo} className="w-10 h-10 rounded-full object-cover shadow-sm border-2 border-white ring-1 ring-slate-100" alt="" />
                             <div>
                               <p className="font-bold text-slate-800 leading-none mb-1">{athlete.firstName} {athlete.lastName}</p>
-                              {monthsOwed.length > 0 ? (
+                              <div className="flex gap-2">
+                                {hasPrevDebt && (
+                                  <span className="text-[8px] font-black bg-red-900 text-white px-2 py-0.5 rounded shadow-sm uppercase italic tracking-tighter">Adeudo Anterior</span>
+                                )}
+                                {athlete.isScholarship && (
+                                  <span className="text-[8px] font-black bg-yellow-400 text-white px-2 py-0.5 rounded shadow-sm uppercase italic tracking-tighter">Becado</span>
+                                )}
+                              </div>
+                              {monthsOwed.length > 0 && (
                                 <p className="text-[9px] text-red-600 font-black uppercase flex flex-wrap gap-1 mt-1">
                                   <i className="fas fa-warning mr-1"></i> DEBE: {monthsOwed.join(', ')}
                                 </p>
-                              ) : (
-                                <p className="text-[10px] text-slate-400 font-bold uppercase">{athlete.isScholarship ? 'Beca Activa' : 'Pago Regular'}</p>
                               )}
                             </div>
                           </div>
@@ -262,11 +286,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest truncate">
                           {match.location}
                         </p>
-                        {match.locationUri && (
-                          <a href={match.locationUri} target="_blank" rel="noopener noreferrer" className="text-blue-500 text-[8px] hover:text-blue-700">
-                             <i className="fas fa-map"></i>
-                          </a>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -285,14 +304,45 @@ const Dashboard: React.FC<DashboardProps> = ({
               <button onClick={() => setShowAddModal(false)} className="text-white/40 hover:text-white transition"><i className="fas fa-times text-xl"></i></button>
             </div>
             <div className="overflow-y-auto custom-scrollbar flex-grow p-10">
-              <form onSubmit={handleAddAthleteSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nombre</label><input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={newAthlete.firstName} onChange={e => setNewAthlete({...newAthlete, firstName: e.target.value})} /></div>
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Apellido</label><input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={newAthlete.lastName} onChange={e => setNewAthlete({...newAthlete, lastName: e.target.value})} /></div>
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nacimiento</label><input type="date" required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={newAthlete.dob} onChange={e => setNewAthlete({...newAthlete, dob: e.target.value})} /></div>
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Categoría</label><input required placeholder="Sub-XX" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={newAthlete.category} onChange={e => setNewAthlete({...newAthlete, category: e.target.value})} /></div>
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Padre/Tutor</label><input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={newAthlete.tutorName} onChange={e => setNewAthlete({...newAthlete, tutorName: e.target.value})} /></div>
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Teléfono</label><input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={newAthlete.tutorPhone} onChange={e => setNewAthlete({...newAthlete, tutorPhone: e.target.value})} /></div>
-                <div className="md:col-span-2 pt-6 flex gap-4"><button type="submit" className="flex-1 bg-red-900 text-white font-black py-4 rounded-3xl uppercase text-sm tracking-widest">Registrar</button><button type="button" onClick={() => setShowAddModal(false)} className="px-8 bg-slate-100 text-slate-500 font-bold rounded-3xl">Cancelar</button></div>
+              <form onSubmit={handleAddAthleteSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nombre</label><input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-black" value={newAthlete.firstName} onChange={e => setNewAthlete({...newAthlete, firstName: e.target.value})} /></div>
+                    <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Apellido</label><input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-black" value={newAthlete.lastName} onChange={e => setNewAthlete({...newAthlete, lastName: e.target.value})} /></div>
+                    <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nacimiento</label><input type="date" required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-black" value={newAthlete.dob} onChange={e => setNewAthlete({...newAthlete, dob: e.target.value})} /></div>
+                    <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Categoría</label><input required placeholder="Sub-XX" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-black" value={newAthlete.category} onChange={e => setNewAthlete({...newAthlete, category: e.target.value})} /></div>
+                    <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Posición</label><input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-black" value={newAthlete.position} onChange={e => setNewAthlete({...newAthlete, position: e.target.value})} /></div>
+                    <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tutor</label><input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-black" value={newAthlete.tutorName} onChange={e => setNewAthlete({...newAthlete, tutorName: e.target.value})} /></div>
+                    <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Teléfono Tutor</label><input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-black" value={newAthlete.tutorPhone} onChange={e => setNewAthlete({...newAthlete, tutorPhone: e.target.value})} /></div>
+                    <div className="flex items-center space-x-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+                      <input type="checkbox" id="scholarship-new" className="w-5 h-5 rounded border-slate-300 text-red-900" checked={newAthlete.isScholarship} onChange={e => setNewAthlete({...newAthlete, isScholarship: e.target.checked})} />
+                      <label htmlFor="scholarship-new" className="text-xs font-black text-slate-600 uppercase tracking-widest">Becado</label>
+                    </div>
+                </div>
+
+                <div className="space-y-3 bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+                   <div className="flex justify-between items-center mb-2">
+                      <label className="text-[10px] font-black text-red-900 uppercase tracking-widest italic">Meses Adeudados Ciclo {new Date().getFullYear() - 1}</label>
+                      <span className="text-[10px] font-black text-slate-400 uppercase">${prevYearOwedMonths.length * MONTHLY_FEE} Total</span>
+                   </div>
+                   <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                      {MONTHS.map(m => (
+                        <button 
+                          key={m} 
+                          type="button" 
+                          onClick={() => togglePrevYearMonth(m)}
+                          className={`py-3 rounded-xl border-2 text-[8px] font-black uppercase transition-all ${prevYearOwedMonths.includes(m) ? 'border-red-900 bg-red-900 text-white shadow-lg' : 'border-slate-200 bg-white text-slate-400 hover:border-red-200'}`}
+                        >
+                          {m.substring(0, 3)}
+                        </button>
+                      ))}
+                   </div>
+                   <p className="text-[8px] font-bold text-slate-400 uppercase italic mt-2 tracking-tighter text-center">Selecciona los meses específicos del año pasado que no han sido liquidados.</p>
+                </div>
+
+                <div className="pt-6 flex gap-4">
+                  <button type="submit" className="flex-1 bg-red-900 text-white font-black py-4 rounded-3xl uppercase text-sm tracking-widest shadow-xl">Registrar</button>
+                  <button type="button" onClick={() => setShowAddModal(false)} className="px-8 bg-slate-100 text-slate-500 font-bold rounded-3xl uppercase text-xs tracking-widest">Cancelar</button>
+                </div>
               </form>
             </div>
           </div>
